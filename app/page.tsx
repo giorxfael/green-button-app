@@ -13,6 +13,7 @@ export default function Home() {
   const [isRegistered, setIsRegistered] = useState(false);
   const [isSenderRegistered, setIsSenderRegistered] = useState(false);
   
+  // Records the exact millisecond the app was opened to filter old pings
   const sessionStart = useRef(new Date().getTime());
 
   useEffect(() => {
@@ -20,10 +21,13 @@ export default function Home() {
     const params = new URLSearchParams(window.location.search);
     const urlRole = params.get('role') as 'sender' | 'receiver';
     setRole(urlRole || 'sender');
+    
+    // Load registration states from local storage
     setIsRegistered(localStorage.getItem('isRegistered') === 'true');
     setIsSenderRegistered(localStorage.getItem('isSenderRegistered') === 'true');
   }, []);
 
+  // 1. REAL-TIME PING & RESPONSE LISTENER
   useEffect(() => {
     if (!mounted || !role) return;
 
@@ -34,11 +38,12 @@ export default function Home() {
         const timeOfPing = data.timestamp?.toDate().getTime() || 0;
         const timeOfResponse = data.respondedAt?.toDate().getTime() || 0;
 
-        const isPingFresh = (now - timeOfPing) < 120000;
-        const isResponseFresh = (now - timeOfResponse) < 60000;
+        const isPingFresh = (now - timeOfPing) < 120000; // 2 mins
+        const isResponseFresh = (now - timeOfResponse) < 60000; // 1 min
         const isResponseFromThisSession = timeOfResponse > sessionStart.current;
 
         if (role === 'receiver') {
+          // RECEIVER: Show buttons if a ping is active and fresh
           if (data.status === "pending" && isPingFresh) {
             setPendingDocId("current");
             setStatus("NEW PING RECEIVED! 👇");
@@ -47,15 +52,12 @@ export default function Home() {
             setStatus(isRegistered ? "Waiting for a ping..." : "");
           }
         } else {
-          // SENDER LOGIC UPDATED
+          // SENDER: Only show the YES/NO if it happened while app was open
           if ((data.status === "yes" || data.status === "no") && isResponseFresh && isResponseFromThisSession) {
-            if (data.status === 'yes') {
-              setStatus("Yes I'm all yours! ✅");
-            } else {
-              setStatus("HELL NO ❌");
-            }
+            const emoji = data.status === 'yes' ? '✅' : '❌';
+            setStatus(`THEY SAID ${data.status.toUpperCase()} ${emoji}`);
           } else if (data.status === "pending" && isPingFresh) {
-            setStatus('Waiting... ⏳'); // Changed from "Ping Sent! Waiting..."
+            setStatus('Ping Sent! Waiting... ⏳');
           }
         }
       }
@@ -63,6 +65,7 @@ export default function Home() {
     return () => unsubscribe();
   }, [mounted, role, isRegistered]);
 
+  // 2. HISTORY LISTENER
   useEffect(() => {
     if (!mounted) return;
     const q = query(collection(db, "history"), orderBy("timestamp", "desc"), limit(5));
@@ -75,6 +78,7 @@ export default function Home() {
 
   if (!mounted || !role) return <div className="min-h-screen bg-black" />;
 
+  // NEW: Response handler that triggers a notification BACK to the sender
   const handleResponse = async (answer: 'yes' | 'no') => {
     try {
       setStatus("Sending...");
@@ -83,39 +87,48 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ answer })
       });
+      
       if (res.ok) {
         setPendingDocId(null);
-        setStatus("Sent! ✅");
+        setStatus(`Sent: ${answer.toUpperCase()} ✅`);
       }
-    } catch (e) { setStatus("Error."); }
+    } catch (e) { setStatus("Error sending."); }
   };
 
   const sendPing = async () => {
-    if (status.includes('Waiting')) return;
-    setStatus('Sending...');
+    if (status.includes('Sent!')) return;
+    setStatus('Sending ping...');
     const res = await fetch('/api/notify', { method: 'POST' });
-    if (!res.ok) setStatus('Failed.');
+    if (!res.ok) setStatus('Failed to send.');
   };
 
   const registerDevice = async (type: 'sender' | 'receiver') => {
-    setStatus('Activating...');
+    setStatus('Requesting permission...');
     try {
       const messaging = await getMessagingInstance();
       if (!messaging) return;
       const permission = await Notification.requestPermission();
-      if (permission !== 'granted') return;
+      if (permission !== 'granted') {
+        setStatus('Permission denied ❌');
+        return;
+      }
       const token = await getToken(messaging, { vapidKey: process.env.NEXT_PUBLIC_VAPID_KEY });
+      
+      // Save token as either "sender" or "receiver"
       await setDoc(doc(db, "tokens", type), { token: token, lastUpdated: new Date() });
+      
       const storageKey = type === 'sender' ? 'isSenderRegistered' : 'isRegistered';
       localStorage.setItem(storageKey, 'true');
       type === 'sender' ? setIsSenderRegistered(true) : setIsRegistered(true);
-      setStatus('Ready ✅');
+      
+      setStatus('Registered! Ready ✅');
     } catch (e) { setStatus('Failed.'); }
   };
 
   return (
     <div className="flex flex-col items-center min-h-screen bg-black text-white p-6 text-center">
       <div className="flex-grow flex flex-col items-center justify-center w-full mt-10">
+        
         {role === 'receiver' ? (
           <div className="w-full max-w-xs">
             {pendingDocId ? (
@@ -127,7 +140,9 @@ export default function Home() {
             ) : (
               <div className="flex flex-col items-center">
                 {!isRegistered && (
-                  <button onClick={() => registerDevice('receiver')} className="bg-blue-600 px-8 py-4 rounded-2xl font-bold mb-4">Activate Receiver</button>
+                  <button onClick={() => registerDevice('receiver')} className="bg-blue-600 px-8 py-4 rounded-2xl font-bold mb-4">
+                    Activate Receiver
+                  </button>
                 )}
                 <p className="text-gray-400 italic text-sm mt-4">{status}</p>
               </div>
@@ -136,9 +151,12 @@ export default function Home() {
         ) : (
           <div>
             <button onClick={sendPing} className="w-64 h-64 rounded-full bg-green-600 shadow-[0_0_60px_rgba(34,197,94,0.5)] active:scale-90 flex items-center justify-center text-4xl font-black uppercase tracking-tighter transition-all">PUSH</button>
-            <p className={`mt-10 font-mono text-2xl transition-all ${status.includes('yours') ? 'text-green-400' : status.includes('HELL') ? 'text-red-400' : 'text-yellow-400'}`}>{status}</p>
+            <p className={`mt-10 font-mono text-2xl transition-all ${status.includes('YES') ? 'text-green-400' : status.includes('NO') ? 'text-red-400' : 'text-yellow-400'}`}>{status}</p>
+            
             {!isSenderRegistered && (
-              <button onClick={() => registerDevice('sender')} className="mt-8 text-[10px] text-gray-600 border border-white/10 px-4 py-2 rounded-full uppercase tracking-widest">Enable Response Alerts</button>
+              <button onClick={() => registerDevice('sender')} className="mt-8 text-[10px] text-gray-600 border border-white/10 px-4 py-2 rounded-full uppercase tracking-widest hover:bg-white/5 transition-all">
+                Enable Response Alerts
+              </button>
             )}
           </div>
         )}
@@ -146,11 +164,15 @@ export default function Home() {
 
       <div className="w-full max-w-sm mt-12 bg-zinc-900/40 rounded-3xl p-6 border border-white/5 backdrop-blur-md mb-4">
         <h2 className="text-[10px] uppercase tracking-[0.3em] text-gray-600 mb-4 font-black text-left ml-2">History</h2>
-        <div className="space-y-3 text-left">
+        <div className="space-y-3">
           {history.map((item) => (
             <div key={item.id} className="flex justify-between items-center text-xs border-b border-white/5 pb-2">
-              <span className="text-gray-600 font-mono">{item.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-              <span className={`font-black uppercase ${item.status === 'yes' ? 'text-green-500' : item.status === 'no' ? 'text-red-500' : 'text-gray-700'}`}>{item.status}</span>
+              <span className="text-gray-600 font-mono">
+                {item.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+              <span className={`font-black ${item.status === 'yes' ? 'text-green-500' : item.status === 'no' ? 'text-red-500' : 'text-gray-700'}`}>
+                {item.status.toUpperCase()}
+              </span>
             </div>
           ))}
         </div>
