@@ -147,7 +147,7 @@ export default function Home() {
   return (
     <div className="flex flex-col items-center min-h-screen bg-black text-white p-6 text-center overflow-x-hidden relative">
       
-      {/* MAIN VIEWPORT */}
+      {/* MAIN INTERACTION AREA */}
       <div className="relative flex-grow flex items-center justify-center w-full">
         {role === 'receiver' ? (
           <div className="w-full max-w-xs z-10">
@@ -184,7 +184,7 @@ export default function Home() {
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center">
-            {/* MINIMALIST GLASS INPUT */}
+            {/* SENDER INPUT */}
             <div className="relative mb-10 w-72">
               <input 
                 type="text" 
@@ -219,8 +219,23 @@ export default function Home() {
         )}
       </div>
 
-      {/* ACTIVITY LOG */}
-      <div className="w-full max-w-sm bg-zinc-900/40 rounded-3xl p-6 border border-white/5 backdrop-blur-md">
+      {/* QUIET STREAK (NOW ABOVE HISTORY BOX) */}
+      {role === 'sender' && (
+        <div className="w-full max-w-sm flex items-center justify-between px-6 mb-4 opacity-60">
+          <div className="flex flex-col items-start">
+            <span className="text-[8px] text-zinc-500 uppercase tracking-[0.3em] font-black leading-none mb-1">Quiet Streak</span>
+            <span className="text-sm font-mono text-zinc-300 tabular-nums font-bold">
+              {streak.time}
+            </span>
+          </div>
+          <span className="text-2xl drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">
+            {streak.emoji}
+          </span>
+        </div>
+      )}
+
+      {/* HISTORY BOX */}
+      <div className="w-full max-w-sm bg-zinc-900/40 rounded-3xl p-6 border border-white/5 backdrop-blur-md mb-6">
         <h2 className="text-[10px] uppercase tracking-[0.3em] text-gray-600 mb-4 font-black text-left ml-2 italic">History</h2>
         <div className="space-y-4 text-left">
           {history.map((item) => {
@@ -243,19 +258,6 @@ export default function Home() {
           })}
         </div>
       </div>
-
-      {/* MINIMALIST QUIET STREAK FOOTER */}
-      {role === 'sender' && (
-        <div className="mt-8 mb-4 flex items-center gap-2 opacity-40 hover:opacity-100 transition-opacity duration-500">
-          <span className="text-xl">{streak.emoji}</span>
-          <div className="flex flex-col items-start">
-            <span className="text-[8px] text-zinc-500 uppercase tracking-[0.3em] font-black leading-none">Quiet Time</span>
-            <span className="text-[10px] font-mono text-zinc-400 tabular-nums font-bold">
-              {streak.time}
-            </span>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
