@@ -7,6 +7,8 @@ import { getToken } from 'firebase/messaging';
 export default function Home() {
   const [role, setRole] = useState<'sender' | 'receiver' | null>(null);
   const [status, setStatus] = useState('');
+  const [customMsg, setCustomMsg] = useState(''); 
+  const [incomingMsg, setIncomingMsg] = useState<string | null>(null);
   const [responseTime, setResponseTime] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [pendingDocId, setPendingDocId] = useState<string | null>(null);
@@ -23,7 +25,7 @@ export default function Home() {
     setIsRegistered(localStorage.getItem('isRegistered') === 'true');
   }, []);
 
-  // 1. Listen for Pings/Responses
+  // 1. MAIN LISTENER: WATCHES FOR PINGS AND ANSWERS
   useEffect(() => {
     if (!mounted || !role) return;
 
@@ -41,7 +43,8 @@ export default function Home() {
         if (role === 'receiver') {
           if (data.status === "pending" && isPingFresh) {
             setPendingDocId("current");
-            setStatus("NEW PING RECEIVED! 👇");
+            setIncomingMsg(data.message || "Ping!");
+            setStatus("NEW MESSAGE! 👇");
           } else {
             setPendingDocId(null);
             setStatus(isRegistered ? "Waiting for a ping..." : "");
@@ -61,7 +64,7 @@ export default function Home() {
     return () => unsubscribe();
   }, [mounted, role, isRegistered]);
 
-  // 2. History Listener
+  // 2. HISTORY LISTENER
   useEffect(() => {
     if (!mounted) return;
     const q = query(collection(db, "history"), orderBy("timestamp", "desc"), limit(5));
@@ -93,21 +96,25 @@ export default function Home() {
     if (status.includes('Waiting')) return;
     setResponseTime(null);
     setStatus('Sending...');
-    const res = await fetch('/api/notify', { method: 'POST' });
-    if (!res.ok) setStatus('Failed.');
+    const res = await fetch('/api/notify', { 
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: customMsg || "🔔" }) 
+    });
+    if (res.ok) {
+        setCustomMsg(''); 
+    } else {
+        setStatus('Failed.');
+    }
   };
 
-  // RESTORED: This is what iPhone 2 needs to get notifications back
   const registerAsReceiver = async () => {
     setStatus('Activating...');
     try {
       const messaging = await getMessagingInstance();
       if (!messaging) return;
       const permission = await Notification.requestPermission();
-      if (permission !== 'granted') {
-        setStatus('Permission Denied ❌');
-        return;
-      }
+      if (permission !== 'granted') return;
       const token = await getToken(messaging, { vapidKey: process.env.NEXT_PUBLIC_VAPID_KEY });
       await setDoc(doc(db, "tokens", "receiver"), { token: token, lastUpdated: new Date() });
       localStorage.setItem('isRegistered', 'true');
@@ -118,12 +125,16 @@ export default function Home() {
 
   return (
     <div className="flex flex-col items-center min-h-screen bg-black text-white p-6 text-center overflow-x-hidden">
+      {/* MAIN VIEWPORT */}
       <div className="relative flex-grow flex items-center justify-center w-full">
         {role === 'receiver' ? (
-          <div className="w-full max-w-xs">
+          <div className="w-full max-w-xs z-10">
             {pendingDocId ? (
               <div className="space-y-4">
-                <p className="text-xl font-bold text-yellow-400 mb-6 uppercase tracking-tighter italic">Ping received:</p>
+                <div className="text-7xl mb-4 animate-bounce drop-shadow-[0_0_20px_rgba(255,255,255,0.4)]">
+                  {incomingMsg}
+                </div>
+                <p className="text-xl font-bold text-yellow-400 mb-6 uppercase tracking-tighter italic">Incoming Ping!</p>
                 <button onClick={() => handleResponse('yes')} className="w-full bg-green-500 py-6 rounded-3xl text-3xl font-black shadow-[0_10px_30px_rgba(34,197,94,0.4)] active:scale-95 transition-all">YES</button>
                 <button onClick={() => handleResponse('no')} className="w-full bg-red-500 py-6 rounded-3xl text-3xl font-black shadow-[0_10px_30px_rgba(239,68,68,0.4)] active:scale-95 transition-all">NO</button>
               </div>
@@ -138,9 +149,26 @@ export default function Home() {
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center">
+            {/* EMOJI / TEXT INPUT */}
+            <input 
+              type="text" 
+              placeholder="Add emojis or text..." 
+              value={customMsg}
+              onChange={(e) => setCustomMsg(e.target.value)}
+              className="bg-zinc-900 border border-white/10 rounded-2xl px-4 py-3 mb-8 w-64 text-center focus:outline-none focus:border-green-500 transition-all text-lg placeholder:text-zinc-700"
+            />
+
+            {/* LOCKED PUSH BUTTON */}
             <div className="w-64 h-64 flex items-center justify-center">
-               <button onClick={sendPing} className="w-full h-full rounded-full bg-green-600 shadow-[0_0_60px_rgba(34,197,94,0.5)] active:scale-90 flex items-center justify-center text-4xl font-black uppercase tracking-tighter transition-all">PUSH</button>
+               <button 
+                 onClick={sendPing} 
+                 className="w-full h-full rounded-full bg-green-600 shadow-[0_0_60px_rgba(34,197,94,0.5)] active:scale-90 flex items-center justify-center text-4xl font-black uppercase tracking-tighter transition-all"
+               >
+                 {customMsg ? 'SEND' : 'PUSH'}
+               </button>
             </div>
+
+            {/* DYNAMIC STATUS AREA (Doesn't shift the button) */}
             <div className="h-32 flex flex-col items-center justify-center mt-6">
               <p className={`font-mono text-2xl transition-all duration-300 ${status.includes('yours') ? 'text-green-400' : status.includes('HELL') ? 'text-red-400' : 'text-yellow-400'}`}>
                 {status}
@@ -153,8 +181,9 @@ export default function Home() {
         )}
       </div>
 
+      {/* ACTIVITY LOG (BOTTOM) */}
       <div className="w-full max-w-sm mt-8 bg-zinc-900/40 rounded-3xl p-6 border border-white/5 backdrop-blur-md mb-4">
-        <h2 className="text-[10px] uppercase tracking-[0.3em] text-gray-600 mb-4 font-black text-left ml-2 italic">Activity Log</h2>
+        <h2 className="text-[10px] uppercase tracking-[0.3em] text-gray-600 mb-4 font-black text-left ml-2 italic">History</h2>
         <div className="space-y-4 text-left">
           {history.map((item) => {
             const timeToDisplay = item.respondedAt ? item.respondedAt.toDate() : item.timestamp?.toDate();
@@ -165,9 +194,12 @@ export default function Home() {
                   <span className={`text-[8px] font-black uppercase ${item.respondedAt ? 'text-blue-500' : 'text-gray-700'}`}>{label}</span>
                   <span className="text-gray-400 font-mono">{timeToDisplay?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
                 </div>
-                <span className={`font-black uppercase text-sm ${item.status === 'yes' ? 'text-green-500' : item.status === 'no' ? 'text-red-500' : 'text-gray-800'}`}>
-                  {item.status === 'yes' ? "YES" : item.status === 'no' ? "NO" : "..."}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-zinc-500 italic max-w-[80px] truncate">{item.message}</span>
+                  <span className={`font-black uppercase text-sm ${item.status === 'yes' ? 'text-green-500' : item.status === 'no' ? 'text-red-500' : 'text-gray-800'}`}>
+                    {item.status === 'yes' ? "YES" : item.status === 'no' ? "NO" : "..."}
+                  </span>
+                </div>
               </div>
             );
           })}
