@@ -12,7 +12,6 @@ export default function Home() {
   const [history, setHistory] = useState<any[]>([]);
   const [isRegistered, setIsRegistered] = useState(false);
   
-  // Records the exact millisecond the app was opened
   const sessionStart = useRef(new Date().getTime());
 
   useEffect(() => {
@@ -23,7 +22,6 @@ export default function Home() {
     setIsRegistered(localStorage.getItem('isRegistered') === 'true');
   }, []);
 
-  // 1. REAL-TIME LISTENER
   useEffect(() => {
     if (!mounted || !role) return;
 
@@ -34,16 +32,11 @@ export default function Home() {
         const timeOfPing = data.timestamp?.toDate().getTime() || 0;
         const timeOfResponse = data.respondedAt?.toDate().getTime() || 0;
 
-        // Freshness: How long ago did this happen?
-        const isPingFresh = (now - timeOfPing) < 120000; // 2 mins
-        const isResponseFresh = (now - timeOfResponse) < 60000; // 1 min
-
-        // Session Check: Did the answer happen AFTER we opened the app?
+        const isPingFresh = (now - timeOfPing) < 120000;
+        const isResponseFresh = (now - timeOfResponse) < 60000;
         const isResponseFromThisSession = timeOfResponse > sessionStart.current;
 
         if (role === 'receiver') {
-          // RECEIVER: Show buttons if a ping is active and "fresh"
-          // We removed the session check here so tapping a notification works perfectly
           if (data.status === "pending" && isPingFresh) {
             setPendingDocId("current");
             setStatus("NEW PING RECEIVED! 👇");
@@ -52,7 +45,6 @@ export default function Home() {
             setStatus(isRegistered ? "Waiting for a ping..." : "");
           }
         } else {
-          // SENDER: Only show the YES/NO if it happened while the app was open
           if ((data.status === "yes" || data.status === "no") && isResponseFresh && isResponseFromThisSession) {
             const emoji = data.status === 'yes' ? '✅' : '❌';
             setStatus(`THEY SAID ${data.status.toUpperCase()} ${emoji}`);
@@ -65,7 +57,6 @@ export default function Home() {
     return () => unsubscribe();
   }, [mounted, role, isRegistered]);
 
-  // 2. HISTORY LISTENER
   useEffect(() => {
     if (!mounted) return;
     const q = query(collection(db, "history"), orderBy("timestamp", "desc"), limit(5));
@@ -93,6 +84,8 @@ export default function Home() {
   };
 
   const sendPing = async () => {
+    // Only send if we aren't already waiting for one
+    if (status.includes('Sent!')) return;
     setStatus('Sending ping...');
     const res = await fetch('/api/notify', { method: 'POST' });
     if (!res.ok) setStatus('Failed to send.');
@@ -118,9 +111,7 @@ export default function Home() {
 
   return (
     <div className="flex flex-col items-center min-h-screen bg-black text-white p-6 text-center">
-      <div className="flex-grow flex flex-col items-center justify-center w-full">
-        <h1 className="text-2xl font-bold mb-8 italic tracking-tighter text-green-500">GB APP</h1>
-
+      <div className="flex-grow flex flex-col items-center justify-center w-full mt-10">
         {role === 'receiver' ? (
           <div className="w-full max-w-xs">
             {pendingDocId ? (
@@ -132,7 +123,7 @@ export default function Home() {
             ) : (
               <div className="flex flex-col items-center">
                 {!isRegistered && <button onClick={registerAsReceiver} className="bg-blue-600 px-8 py-4 rounded-2xl font-bold mb-4">Activate Receiver</button>}
-                <p className="text-gray-500 italic h-6">{status}</p>
+                <p className="text-gray-400 italic text-sm mt-4">{status}</p>
               </div>
             )}
           </div>
@@ -144,8 +135,8 @@ export default function Home() {
         )}
       </div>
 
-      <div className="w-full max-w-sm mt-12 bg-zinc-900/40 rounded-3xl p-6 border border-white/5 backdrop-blur-md">
-        <h2 className="text-[10px] uppercase tracking-[0.3em] text-gray-600 mb-4 font-black">History</h2>
+      <div className="w-full max-w-sm mt-12 bg-zinc-900/40 rounded-3xl p-6 border border-white/5 backdrop-blur-md mb-4">
+        <h2 className="text-[10px] uppercase tracking-[0.3em] text-gray-600 mb-4 font-black text-left ml-2">History</h2>
         <div className="space-y-3">
           {history.map((item) => (
             <div key={item.id} className="flex justify-between items-center text-xs border-b border-white/5 pb-2">
