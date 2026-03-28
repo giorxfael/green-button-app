@@ -25,7 +25,7 @@ export default function Home() {
     setIsRegistered(localStorage.getItem('isRegistered') === 'true');
   }, []);
 
-  // 1. MAIN LISTENER: WATCHES FOR PINGS AND ANSWERS
+  // 1. MAIN REAL-TIME LISTENER
   useEffect(() => {
     if (!mounted || !role) return;
 
@@ -44,10 +44,10 @@ export default function Home() {
           if (data.status === "pending" && isPingFresh) {
             setPendingDocId("current");
             setIncomingMsg(data.message || "Ping!");
-            setStatus("NEW MESSAGE! 👇");
+            setStatus(""); 
           } else {
             setPendingDocId(null);
-            setStatus(isRegistered ? "Waiting for a ping..." : "");
+            setStatus(isRegistered ? "Standing by..." : "");
           }
         } else {
           if ((data.status === "yes" || data.status === "no") && isResponseFresh && isResponseFromThisSession) {
@@ -101,11 +101,8 @@ export default function Home() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: customMsg || "🔔" }) 
     });
-    if (res.ok) {
-        setCustomMsg(''); 
-    } else {
-        setStatus('Failed.');
-    }
+    if (res.ok) setCustomMsg(''); 
+    else setStatus('Failed.');
   };
 
   const registerAsReceiver = async () => {
@@ -125,40 +122,53 @@ export default function Home() {
 
   return (
     <div className="flex flex-col items-center min-h-screen bg-black text-white p-6 text-center overflow-x-hidden">
-      {/* MAIN VIEWPORT */}
       <div className="relative flex-grow flex items-center justify-center w-full">
         {role === 'receiver' ? (
           <div className="w-full max-w-xs z-10">
             {pendingDocId ? (
-              <div className="space-y-4">
-                <div className="text-7xl mb-4 animate-bounce drop-shadow-[0_0_20px_rgba(255,255,255,0.4)]">
-                  {incomingMsg}
+              <div className="space-y-6">
+                
+                {/* DYNAMIC RECEIVER MESSAGE */}
+                <div className="flex flex-col items-center justify-center min-h-[180px]">
+                  {incomingMsg && [...incomingMsg].length <= 2 ? (
+                    <div className="text-8xl animate-bounce drop-shadow-[0_0_30px_rgba(255,255,255,0.4)]">
+                      {incomingMsg}
+                    </div>
+                  ) : (
+                    <div className="bg-zinc-900/50 border border-white/10 px-6 py-8 rounded-[2rem] w-full backdrop-blur-sm">
+                      <p className="text-2xl font-black tracking-tight leading-tight">
+                        "{incomingMsg}"
+                      </p>
+                    </div>
+                  )}
                 </div>
-                <p className="text-xl font-bold text-yellow-400 mb-6 uppercase tracking-tighter italic">Incoming Ping!</p>
-                <button onClick={() => handleResponse('yes')} className="w-full bg-green-500 py-6 rounded-3xl text-3xl font-black shadow-[0_10px_30px_rgba(34,197,94,0.4)] active:scale-95 transition-all">YES</button>
-                <button onClick={() => handleResponse('no')} className="w-full bg-red-500 py-6 rounded-3xl text-3xl font-black shadow-[0_10px_30px_rgba(239,68,68,0.4)] active:scale-95 transition-all">NO</button>
+
+                <div className="space-y-4 pt-4">
+                  <button onClick={() => handleResponse('yes')} className="w-full bg-green-500 py-6 rounded-3xl text-3xl font-black shadow-[0_10px_30px_rgba(34,197,94,0.4)] active:scale-95 transition-all">YES</button>
+                  <button onClick={() => handleResponse('no')} className="w-full bg-red-500 py-6 rounded-3xl text-3xl font-black shadow-[0_10px_30px_rgba(239,68,68,0.4)] active:scale-95 transition-all">NO</button>
+                </div>
               </div>
             ) : (
               <div className="flex flex-col items-center">
                 {!isRegistered && (
                   <button onClick={registerAsReceiver} className="bg-blue-600 px-8 py-4 rounded-2xl font-bold mb-4">Activate Receiver</button>
                 )}
-                <p className="text-gray-400 italic text-sm mt-4">{status}</p>
+                <p className="text-gray-500 italic text-sm mt-4 font-mono uppercase tracking-widest">{status || "Standing by..."}</p>
               </div>
             )}
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center">
-            {/* EMOJI / TEXT INPUT */}
+            {/* SENDER INPUT */}
             <input 
               type="text" 
               placeholder="Add emojis or text..." 
               value={customMsg}
               onChange={(e) => setCustomMsg(e.target.value)}
-              className="bg-zinc-900 border border-white/10 rounded-2xl px-4 py-3 mb-8 w-64 text-center focus:outline-none focus:border-green-500 transition-all text-lg placeholder:text-zinc-700"
+              className="bg-zinc-900 border border-white/10 rounded-2xl px-4 py-3 mb-8 w-64 text-center focus:outline-none focus:border-green-500 transition-all text-lg placeholder:text-zinc-700 font-medium"
             />
 
-            {/* LOCKED PUSH BUTTON */}
+            {/* LOCKED SENDER BUTTON */}
             <div className="w-64 h-64 flex items-center justify-center">
                <button 
                  onClick={sendPing} 
@@ -168,7 +178,7 @@ export default function Home() {
                </button>
             </div>
 
-            {/* DYNAMIC STATUS AREA (Doesn't shift the button) */}
+            {/* STATUS AREA */}
             <div className="h-32 flex flex-col items-center justify-center mt-6">
               <p className={`font-mono text-2xl transition-all duration-300 ${status.includes('yours') ? 'text-green-400' : status.includes('HELL') ? 'text-red-400' : 'text-yellow-400'}`}>
                 {status}
@@ -181,9 +191,9 @@ export default function Home() {
         )}
       </div>
 
-      {/* ACTIVITY LOG (BOTTOM) */}
+      {/* ACTIVITY LOG */}
       <div className="w-full max-w-sm mt-8 bg-zinc-900/40 rounded-3xl p-6 border border-white/5 backdrop-blur-md mb-4">
-        <h2 className="text-[10px] uppercase tracking-[0.3em] text-gray-600 mb-4 font-black text-left ml-2 italic">History</h2>
+        <h2 className="text-[10px] uppercase tracking-[0.3em] text-gray-600 mb-4 font-black text-left ml-2 italic">Activity Log</h2>
         <div className="space-y-4 text-left">
           {history.map((item) => {
             const timeToDisplay = item.respondedAt ? item.respondedAt.toDate() : item.timestamp?.toDate();
@@ -195,7 +205,7 @@ export default function Home() {
                   <span className="text-gray-400 font-mono">{timeToDisplay?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-xs text-zinc-500 italic max-w-[80px] truncate">{item.message}</span>
+                  <span className="text-xs text-zinc-600 italic max-w-[80px] truncate">{item.message}</span>
                   <span className={`font-black uppercase text-sm ${item.status === 'yes' ? 'text-green-500' : item.status === 'no' ? 'text-red-500' : 'text-gray-800'}`}>
                     {item.status === 'yes' ? "YES" : item.status === 'no' ? "NO" : "..."}
                   </span>
