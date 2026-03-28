@@ -25,7 +25,7 @@ export default function Home() {
     setIsRegistered(localStorage.getItem('isRegistered') === 'true');
   }, []);
 
-  // 1. REVERSE STREAK LOGIC
+  // 1. REVERSE STREAK LOGIC (Calculated for both roles)
   const getQuietStreak = () => {
     if (history.length === 0) return { time: "0h 0m", emoji: "🆕" };
     
@@ -184,7 +184,6 @@ export default function Home() {
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center">
-            {/* SENDER INPUT */}
             <div className="relative mb-10 w-72">
               <input 
                 type="text" 
@@ -219,20 +218,18 @@ export default function Home() {
         )}
       </div>
 
-      {/* QUIET STREAK (NOW ABOVE HISTORY BOX) */}
-      {role === 'sender' && (
-        <div className="w-full max-w-sm flex items-center justify-between px-6 mb-4 opacity-60">
-          <div className="flex flex-col items-start">
-            <span className="text-[8px] text-zinc-500 uppercase tracking-[0.3em] font-black leading-none mb-1">Quiet Streak</span>
-            <span className="text-sm font-mono text-zinc-300 tabular-nums font-bold">
-              {streak.time}
-            </span>
-          </div>
-          <span className="text-2xl drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">
-            {streak.emoji}
+      {/* QUIET STREAK (NOW VISIBLE TO BOTH) */}
+      <div className="w-full max-w-sm flex items-center justify-between px-6 mb-4 opacity-60">
+        <div className="flex flex-col items-start text-left">
+          <span className="text-[8px] text-zinc-500 uppercase tracking-[0.3em] font-black leading-none mb-1">Quiet Streak</span>
+          <span className="text-sm font-mono text-zinc-300 tabular-nums font-bold">
+            {streak.time}
           </span>
         </div>
-      )}
+        <span className="text-2xl drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">
+          {streak.emoji}
+        </span>
+      </div>
 
       {/* HISTORY BOX */}
       <div className="w-full max-w-sm bg-zinc-900/40 rounded-3xl p-6 border border-white/5 backdrop-blur-md mb-6">
