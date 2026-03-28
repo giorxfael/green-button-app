@@ -147,21 +147,7 @@ export default function Home() {
   return (
     <div className="flex flex-col items-center min-h-screen bg-black text-white p-6 text-center overflow-x-hidden relative">
       
-      {/* TOP RIGHT QUIET STREAK */}
-      {role === 'sender' && (
-        <div className="absolute top-8 right-8 flex flex-col items-end animate-in fade-in slide-in-from-right duration-700">
-          <span className="text-4xl mb-1 drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]">
-            {streak.emoji}
-          </span>
-          <div className="flex flex-col items-end">
-            <span className="text-[8px] text-zinc-600 uppercase tracking-[0.3em] font-black">Quiet Time</span>
-            <span className="text-xs font-mono text-zinc-400 tabular-nums">
-              {streak.time}
-            </span>
-          </div>
-        </div>
-      )}
-
+      {/* MAIN VIEWPORT */}
       <div className="relative flex-grow flex items-center justify-center w-full">
         {role === 'receiver' ? (
           <div className="w-full max-w-xs z-10">
@@ -233,7 +219,8 @@ export default function Home() {
         )}
       </div>
 
-      <div className="w-full max-w-sm mt-8 bg-zinc-900/40 rounded-3xl p-6 border border-white/5 backdrop-blur-md mb-4">
+      {/* ACTIVITY LOG */}
+      <div className="w-full max-w-sm bg-zinc-900/40 rounded-3xl p-6 border border-white/5 backdrop-blur-md">
         <h2 className="text-[10px] uppercase tracking-[0.3em] text-gray-600 mb-4 font-black text-left ml-2 italic">History</h2>
         <div className="space-y-4 text-left">
           {history.map((item) => {
@@ -256,6 +243,19 @@ export default function Home() {
           })}
         </div>
       </div>
+
+      {/* MINIMALIST QUIET STREAK FOOTER */}
+      {role === 'sender' && (
+        <div className="mt-8 mb-4 flex items-center gap-2 opacity-40 hover:opacity-100 transition-opacity duration-500">
+          <span className="text-xl">{streak.emoji}</span>
+          <div className="flex flex-col items-start">
+            <span className="text-[8px] text-zinc-500 uppercase tracking-[0.3em] font-black leading-none">Quiet Time</span>
+            <span className="text-[10px] font-mono text-zinc-400 tabular-nums font-bold">
+              {streak.time}
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
