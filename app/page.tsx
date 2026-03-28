@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { db, getMessagingInstance } from '@/lib/firebase';
+import { db, getMessagingInstance } from '../lib/firebase';
 import { doc, setDoc, onSnapshot, updateDoc, collection, query, orderBy, limit } from 'firebase/firestore';
 import { getToken } from 'firebase/messaging';
 
