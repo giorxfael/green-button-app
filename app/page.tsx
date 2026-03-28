@@ -126,7 +126,6 @@ export default function Home() {
             {pendingDocId ? (
               <div className="space-y-8">
                 
-                {/* MINIMALIST MESSAGE DISPLAY */}
                 <div className="flex flex-col items-center justify-center min-h-[200px] px-4">
                   {incomingMsg && [...incomingMsg].length <= 2 ? (
                     <div className="text-9xl animate-bounce drop-shadow-[0_0_35px_rgba(255,255,255,0.3)]">
@@ -142,17 +141,17 @@ export default function Home() {
                   )}
                 </div>
 
-                {/* HIGH CONTRAST BUTTONS */}
-                <div className="grid grid-cols-2 gap-4">
+                {/* THIN BORDER GHOST BUTTONS */}
+                <div className="grid grid-cols-2 gap-4 pt-4">
                   <button 
                     onClick={() => handleResponse('yes')} 
-                    className="bg-white text-black py-8 rounded-[2rem] text-2xl font-black active:scale-90 transition-all shadow-xl"
+                    className="bg-transparent border-2 border-green-500 text-green-500 py-6 rounded-[2rem] text-2xl font-black active:scale-95 transition-all shadow-[0_0_15px_rgba(34,197,94,0.15)]"
                   >
                     YES
                   </button>
                   <button 
                     onClick={() => handleResponse('no')} 
-                    className="bg-zinc-900 text-white py-8 rounded-[2rem] text-2xl font-black border border-white/10 active:scale-90 transition-all"
+                    className="bg-transparent border-2 border-red-500 text-red-500 py-6 rounded-[2rem] text-2xl font-black active:scale-95 transition-all shadow-[0_0_15px_rgba(239,68,68,0.15)]"
                   >
                     NO
                   </button>
@@ -198,7 +197,6 @@ export default function Home() {
         )}
       </div>
 
-      {/* FOOTER LOG */}
       <div className="w-full max-w-sm mt-8 bg-zinc-900/40 rounded-3xl p-6 border border-white/5 backdrop-blur-md mb-4">
         <h2 className="text-[10px] uppercase tracking-[0.3em] text-gray-600 mb-4 font-black text-left ml-2 italic">History</h2>
         <div className="space-y-4 text-left">
