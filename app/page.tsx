@@ -25,6 +25,32 @@ export default function Home() {
     setIsRegistered(localStorage.getItem('isRegistered') === 'true');
   }, []);
 
+  // 1. REVERSE STREAK LOGIC
+  const getQuietStreak = () => {
+    if (history.length === 0) return { time: "0h 0m", emoji: "🆕" };
+    
+    // Find the last time YOU sent a ping
+    const lastPing = history.find(item => item.timestamp)?.timestamp?.toDate();
+    if (!lastPing) return { time: "0h 0m", emoji: "🐣" };
+
+    const diffInMs = new Date().getTime() - lastPing.getTime();
+    const hours = Math.floor(diffInMs / (1000 * 60 * 60));
+    const minutes = Math.floor((diffInMs / (1000 * 60)) % 60);
+    const days = Math.floor(hours / 24);
+
+    let emoji = "🤫"; 
+    if (hours >= 1) emoji = "🧘";
+    if (hours >= 5) emoji = "📴";
+    if (days >= 1) emoji = "🏆";
+    if (days >= 3) emoji = "♾️";
+
+    const timeStr = days > 0 ? `${days}d ${hours % 24}h` : `${hours}h ${minutes}m`;
+    return { time: timeStr, emoji };
+  };
+
+  const streak = getQuietStreak();
+
+  // 2. MAIN REAL-TIME LISTENER
   useEffect(() => {
     if (!mounted || !role) return;
 
@@ -63,6 +89,7 @@ export default function Home() {
     return () => unsubscribe();
   }, [mounted, role, isRegistered]);
 
+  // 3. HISTORY LISTENER
   useEffect(() => {
     if (!mounted) return;
     const q = query(collection(db, "history"), orderBy("timestamp", "desc"), limit(5));
@@ -119,13 +146,28 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col items-center min-h-screen bg-black text-white p-6 text-center overflow-x-hidden">
+    <div className="flex flex-col items-center min-h-screen bg-black text-white p-6 text-center overflow-x-hidden relative">
+      
+      {/* TOP RIGHT QUIET STREAK */}
+      {role === 'sender' && (
+        <div className="absolute top-8 right-8 flex flex-col items-end animate-in fade-in slide-in-from-right duration-700">
+          <span className="text-4xl mb-1 drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]">
+            {streak.emoji}
+          </span>
+          <div className="flex flex-col items-end">
+            <span className="text-[8px] text-zinc-600 uppercase tracking-[0.3em] font-black">Quiet Time</span>
+            <span className="text-xs font-mono text-zinc-400 tabular-nums">
+              {streak.time}
+            </span>
+          </div>
+        </div>
+      )}
+
       <div className="relative flex-grow flex items-center justify-center w-full">
         {role === 'receiver' ? (
           <div className="w-full max-w-xs z-10">
             {pendingDocId ? (
               <div className="space-y-8">
-                
                 <div className="flex flex-col items-center justify-center min-h-[200px] px-4">
                   {incomingMsg && [...incomingMsg].length <= 2 ? (
                     <div className="text-9xl animate-bounce drop-shadow-[0_0_35px_rgba(255,255,255,0.3)]">
@@ -141,20 +183,9 @@ export default function Home() {
                   )}
                 </div>
 
-                {/* THIN BORDER GHOST BUTTONS */}
                 <div className="grid grid-cols-2 gap-4 pt-4">
-                  <button 
-                    onClick={() => handleResponse('yes')} 
-                    className="bg-transparent border-2 border-green-500 text-green-500 py-6 rounded-[2rem] text-2xl font-black active:scale-95 transition-all shadow-[0_0_15px_rgba(34,197,94,0.15)]"
-                  >
-                    YES
-                  </button>
-                  <button 
-                    onClick={() => handleResponse('no')} 
-                    className="bg-transparent border-2 border-red-500 text-red-500 py-6 rounded-[2rem] text-2xl font-black active:scale-95 transition-all shadow-[0_0_15px_rgba(239,68,68,0.15)]"
-                  >
-                    NO
-                  </button>
+                  <button onClick={() => handleResponse('yes')} className="bg-transparent border-2 border-green-500 text-green-500 py-6 rounded-[2rem] text-2xl font-black active:scale-95 transition-all shadow-[0_0_15px_rgba(34,197,94,0.15)]">YES</button>
+                  <button onClick={() => handleResponse('no')} className="bg-transparent border-2 border-red-500 text-red-500 py-6 rounded-[2rem] text-2xl font-black active:scale-95 transition-all shadow-[0_0_15px_rgba(239,68,68,0.15)]">NO</button>
                 </div>
               </div>
             ) : (
