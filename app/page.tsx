@@ -7,11 +7,11 @@ import { getToken } from 'firebase/messaging';
 export default function Home() {
   const [role, setRole] = useState<'sender' | 'receiver' | null>(null);
   const [status, setStatus] = useState('');
+  const [responseTime, setResponseTime] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [pendingDocId, setPendingDocId] = useState<string | null>(null);
   const [history, setHistory] = useState<any[]>([]);
   const [isRegistered, setIsRegistered] = useState(false);
-  const [isSenderRegistered, setIsSenderRegistered] = useState(false);
   
   const sessionStart = useRef(new Date().getTime());
 
@@ -21,7 +21,6 @@ export default function Home() {
     const urlRole = params.get('role') as 'sender' | 'receiver';
     setRole(urlRole || 'sender');
     setIsRegistered(localStorage.getItem('isRegistered') === 'true');
-    setIsSenderRegistered(localStorage.getItem('isSenderRegistered') === 'true');
   }, []);
 
   useEffect(() => {
@@ -48,8 +47,11 @@ export default function Home() {
           }
         } else {
           if ((data.status === "yes" || data.status === "no") && isResponseFresh && isResponseFromThisSession) {
+            const timeStr = data.respondedAt?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            setResponseTime(timeStr);
             setStatus(data.status === 'yes' ? "Yes I'm all yours! ✅" : "HELL NO ❌");
           } else if (data.status === "pending" && isPingFresh) {
+            setResponseTime(null);
             setStatus('Waiting... ⏳');
           }
         }
@@ -87,12 +89,13 @@ export default function Home() {
 
   const sendPing = async () => {
     if (status.includes('Waiting')) return;
+    setResponseTime(null);
     setStatus('Sending...');
     const res = await fetch('/api/notify', { method: 'POST' });
     if (!res.ok) setStatus('Failed.');
   };
 
-  const registerDevice = async (type: 'sender' | 'receiver') => {
+  const registerAsReceiver = async () => {
     setStatus('Activating...');
     try {
       const messaging = await getMessagingInstance();
@@ -100,17 +103,15 @@ export default function Home() {
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') return;
       const token = await getToken(messaging, { vapidKey: process.env.NEXT_PUBLIC_VAPID_KEY });
-      await setDoc(doc(db, "tokens", type), { token: token, lastUpdated: new Date() });
-      const storageKey = type === 'sender' ? 'isSenderRegistered' : 'isRegistered';
-      localStorage.setItem(storageKey, 'true');
-      type === 'sender' ? setIsSenderRegistered(true) : setIsRegistered(true);
+      await setDoc(doc(db, "tokens", "receiver"), { token: token, lastUpdated: new Date() });
+      localStorage.setItem('isRegistered', 'true');
+      setIsRegistered(true);
       setStatus('Ready ✅');
     } catch (e) { setStatus('Failed.'); }
   };
 
   return (
     <div className="flex flex-col items-center min-h-screen bg-black text-white p-6 text-center overflow-x-hidden">
-      {/* MAIN CENTER AREA */}
       <div className="relative flex-grow flex items-center justify-center w-full">
         {role === 'receiver' ? (
           <div className="w-full max-w-xs">
@@ -123,7 +124,7 @@ export default function Home() {
             ) : (
               <div className="flex flex-col items-center">
                 {!isRegistered && (
-                  <button onClick={() => registerDevice('receiver')} className="bg-blue-600 px-8 py-4 rounded-2xl font-bold mb-4">Activate Receiver</button>
+                  <button onClick={registerAsReceiver} className="bg-blue-600 px-8 py-4 rounded-2xl font-bold mb-4">Activate Receiver</button>
                 )}
                 <p className="text-gray-400 italic text-sm mt-4">{status}</p>
               </div>
@@ -131,7 +132,6 @@ export default function Home() {
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center">
-            {/* THE BUTTON: Wrapped in a fixed size container */}
             <div className="w-64 h-64 flex items-center justify-center">
                <button 
                  onClick={sendPing} 
@@ -141,23 +141,20 @@ export default function Home() {
                </button>
             </div>
 
-            {/* STATUS & ALERTS AREA: Fixed height so it doesn't move the button */}
             <div className="h-32 flex flex-col items-center justify-center mt-6">
               <p className={`font-mono text-2xl transition-all duration-300 ${status.includes('yours') ? 'text-green-400' : status.includes('HELL') ? 'text-red-400' : 'text-yellow-400'}`}>
                 {status}
               </p>
-              
-              {!isSenderRegistered && (
-                <button onClick={() => registerDevice('sender')} className="mt-4 text-[10px] text-gray-600 border border-white/10 px-4 py-2 rounded-full uppercase tracking-widest hover:bg-white/5">
-                  Enable Response Alerts
-                </button>
+              {responseTime && (
+                <p className="text-gray-500 font-mono text-xs mt-2 uppercase tracking-widest italic">
+                  at {responseTime}
+                </p>
               )}
             </div>
           </div>
         )}
       </div>
 
-      {/* HISTORY SECTION */}
       <div className="w-full max-w-sm mt-8 bg-zinc-900/40 rounded-3xl p-6 border border-white/5 backdrop-blur-md mb-4">
         <h2 className="text-[10px] uppercase tracking-[0.3em] text-gray-600 mb-4 font-black text-left ml-2 italic">Activity Log</h2>
         <div className="space-y-4 text-left">
