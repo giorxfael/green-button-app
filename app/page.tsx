@@ -29,7 +29,6 @@ export default function Home() {
   const getQuietStreak = () => {
     if (history.length === 0) return { time: "0h 0m", emoji: "🆕" };
     
-    // Find the last time YOU sent a ping
     const lastPing = history.find(item => item.timestamp)?.timestamp?.toDate();
     if (!lastPing) return { time: "0h 0m", emoji: "🐣" };
 
@@ -199,13 +198,17 @@ export default function Home() {
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center">
-            <input 
-              type="text" 
-              placeholder="Message..." 
-              value={customMsg}
-              onChange={(e) => setCustomMsg(e.target.value)}
-              className="bg-zinc-900 border border-white/10 rounded-2xl px-4 py-3 mb-8 w-64 text-center focus:outline-none focus:border-white/40 transition-all text-lg placeholder:text-zinc-800"
-            />
+            {/* MINIMALIST GLASS INPUT */}
+            <div className="relative mb-10 w-72">
+              <input 
+                type="text" 
+                placeholder="MESSAGE..." 
+                value={customMsg}
+                onChange={(e) => setCustomMsg(e.target.value)}
+                className="w-full bg-transparent border-b border-white/20 px-2 py-4 text-center focus:outline-none focus:border-green-500 transition-all text-xl font-black tracking-[0.2em] placeholder:text-zinc-800 placeholder:font-black uppercase italic"
+              />
+              <div className="absolute bottom-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+            </div>
 
             <div className="w-64 h-64 flex items-center justify-center">
                <button 
@@ -217,11 +220,13 @@ export default function Home() {
             </div>
 
             <div className="h-32 flex flex-col items-center justify-center mt-6">
-              <p className={`font-mono text-2xl transition-all duration-300 ${status.includes('yours') ? 'text-green-400' : status.includes('HELL') ? 'text-red-400' : 'text-yellow-400'}`}>
+              <p className={`font-black text-2xl uppercase italic tracking-tighter transition-all duration-300 ${status.includes('yours') ? 'text-green-400' : status.includes('HELL') ? 'text-red-400' : 'text-yellow-400'}`}>
                 {status}
               </p>
               {responseTime && (
-                <p className="text-gray-500 font-mono text-[10px] mt-2 uppercase tracking-widest italic">at {responseTime}</p>
+                <p className="text-zinc-600 font-mono text-[10px] mt-2 uppercase tracking-[0.3em] font-black italic">
+                  Confirmed {responseTime}
+                </p>
               )}
             </div>
           </div>
