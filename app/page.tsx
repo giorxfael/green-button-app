@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { db, getMessagingInstance } from '../lib/firebase';
-import { doc, setDoc, onSnapshot, updateDoc, collection, query, orderBy, limit, getDoc } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot, collection, query, orderBy, limit } from 'firebase/firestore';
 import { getToken } from 'firebase/messaging';
 
 export default function Home() {
@@ -11,6 +11,7 @@ export default function Home() {
   const [pendingDocId, setPendingDocId] = useState<string | null>(null);
   const [history, setHistory] = useState<any[]>([]);
   const [isRegistered, setIsRegistered] = useState(false);
+  const [isSenderRegistered, setIsSenderRegistered] = useState(false);
   
   const sessionStart = useRef(new Date().getTime());
 
@@ -20,6 +21,7 @@ export default function Home() {
     const urlRole = params.get('role') as 'sender' | 'receiver';
     setRole(urlRole || 'sender');
     setIsRegistered(localStorage.getItem('isRegistered') === 'true');
+    setIsSenderRegistered(localStorage.getItem('isSenderRegistered') === 'true');
   }, []);
 
   useEffect(() => {
@@ -45,11 +47,15 @@ export default function Home() {
             setStatus(isRegistered ? "Waiting for a ping..." : "");
           }
         } else {
+          // SENDER LOGIC UPDATED
           if ((data.status === "yes" || data.status === "no") && isResponseFresh && isResponseFromThisSession) {
-            const emoji = data.status === 'yes' ? '✅' : '❌';
-            setStatus(`THEY SAID ${data.status.toUpperCase()} ${emoji}`);
+            if (data.status === 'yes') {
+              setStatus("Yes I'm all yours! ✅");
+            } else {
+              setStatus("HELL NO ❌");
+            }
           } else if (data.status === "pending" && isPingFresh) {
-            setStatus('Ping Sent! Waiting... ⏳');
+            setStatus('Waiting... ⏳'); // Changed from "Ping Sent! Waiting..."
           }
         }
       }
@@ -71,41 +77,39 @@ export default function Home() {
 
   const handleResponse = async (answer: 'yes' | 'no') => {
     try {
-      const currentSnap = await getDoc(doc(db, "notifications", "current"));
-      const historyId = currentSnap.data()?.historyId;
-      const updateData = { status: answer, respondedAt: new Date() };
-      
-      await updateDoc(doc(db, "notifications", "current"), updateData);
-      if (historyId) await updateDoc(doc(db, "history", historyId), updateData);
-      
-      setPendingDocId(null);
-      setStatus(`Sent: ${answer.toUpperCase()} ✅`);
-    } catch (e) { setStatus("Error sending."); }
+      setStatus("Sending...");
+      const res = await fetch('/api/respond', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answer })
+      });
+      if (res.ok) {
+        setPendingDocId(null);
+        setStatus("Sent! ✅");
+      }
+    } catch (e) { setStatus("Error."); }
   };
 
   const sendPing = async () => {
-    // Only send if we aren't already waiting for one
-    if (status.includes('Sent!')) return;
-    setStatus('Sending ping...');
+    if (status.includes('Waiting')) return;
+    setStatus('Sending...');
     const res = await fetch('/api/notify', { method: 'POST' });
-    if (!res.ok) setStatus('Failed to send.');
+    if (!res.ok) setStatus('Failed.');
   };
 
-  const registerAsReceiver = async () => {
-    setStatus('Requesting permission...');
+  const registerDevice = async (type: 'sender' | 'receiver') => {
+    setStatus('Activating...');
     try {
       const messaging = await getMessagingInstance();
       if (!messaging) return;
       const permission = await Notification.requestPermission();
-      if (permission !== 'granted') {
-        setStatus('Permission denied ❌');
-        return;
-      }
+      if (permission !== 'granted') return;
       const token = await getToken(messaging, { vapidKey: process.env.NEXT_PUBLIC_VAPID_KEY });
-      await setDoc(doc(db, "tokens", "receiver"), { token: token, lastUpdated: new Date() });
-      localStorage.setItem('isRegistered', 'true');
-      setIsRegistered(true);
-      setStatus('Registered! Ready ✅');
+      await setDoc(doc(db, "tokens", type), { token: token, lastUpdated: new Date() });
+      const storageKey = type === 'sender' ? 'isSenderRegistered' : 'isRegistered';
+      localStorage.setItem(storageKey, 'true');
+      type === 'sender' ? setIsSenderRegistered(true) : setIsRegistered(true);
+      setStatus('Ready ✅');
     } catch (e) { setStatus('Failed.'); }
   };
 
@@ -116,13 +120,15 @@ export default function Home() {
           <div className="w-full max-w-xs">
             {pendingDocId ? (
               <div className="space-y-4">
-                <p className="text-xl font-bold text-yellow-400 mb-6 uppercase">Incoming Ping:</p>
+                <p className="text-xl font-bold text-yellow-400 mb-6 uppercase tracking-tighter">Incoming Ping:</p>
                 <button onClick={() => handleResponse('yes')} className="w-full bg-green-500 py-6 rounded-3xl text-3xl font-black shadow-[0_10px_30px_rgba(34,197,94,0.4)] active:scale-95 transition-all">YES</button>
                 <button onClick={() => handleResponse('no')} className="w-full bg-red-500 py-6 rounded-3xl text-3xl font-black shadow-[0_10px_30px_rgba(239,68,68,0.4)] active:scale-95 transition-all">NO</button>
               </div>
             ) : (
               <div className="flex flex-col items-center">
-                {!isRegistered && <button onClick={registerAsReceiver} className="bg-blue-600 px-8 py-4 rounded-2xl font-bold mb-4">Activate Receiver</button>}
+                {!isRegistered && (
+                  <button onClick={() => registerDevice('receiver')} className="bg-blue-600 px-8 py-4 rounded-2xl font-bold mb-4">Activate Receiver</button>
+                )}
                 <p className="text-gray-400 italic text-sm mt-4">{status}</p>
               </div>
             )}
@@ -130,22 +136,21 @@ export default function Home() {
         ) : (
           <div>
             <button onClick={sendPing} className="w-64 h-64 rounded-full bg-green-600 shadow-[0_0_60px_rgba(34,197,94,0.5)] active:scale-90 flex items-center justify-center text-4xl font-black uppercase tracking-tighter transition-all">PUSH</button>
-            <p className={`mt-10 font-mono text-2xl transition-all ${status.includes('YES') ? 'text-green-400' : status.includes('NO') ? 'text-red-400' : 'text-yellow-400'}`}>{status}</p>
+            <p className={`mt-10 font-mono text-2xl transition-all ${status.includes('yours') ? 'text-green-400' : status.includes('HELL') ? 'text-red-400' : 'text-yellow-400'}`}>{status}</p>
+            {!isSenderRegistered && (
+              <button onClick={() => registerDevice('sender')} className="mt-8 text-[10px] text-gray-600 border border-white/10 px-4 py-2 rounded-full uppercase tracking-widest">Enable Response Alerts</button>
+            )}
           </div>
         )}
       </div>
 
       <div className="w-full max-w-sm mt-12 bg-zinc-900/40 rounded-3xl p-6 border border-white/5 backdrop-blur-md mb-4">
         <h2 className="text-[10px] uppercase tracking-[0.3em] text-gray-600 mb-4 font-black text-left ml-2">History</h2>
-        <div className="space-y-3">
+        <div className="space-y-3 text-left">
           {history.map((item) => (
             <div key={item.id} className="flex justify-between items-center text-xs border-b border-white/5 pb-2">
-              <span className="text-gray-600 font-mono">
-                {item.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </span>
-              <span className={`font-black ${item.status === 'yes' ? 'text-green-500' : item.status === 'no' ? 'text-red-500' : 'text-gray-700'}`}>
-                {item.status.toUpperCase()}
-              </span>
+              <span className="text-gray-600 font-mono">{item.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              <span className={`font-black uppercase ${item.status === 'yes' ? 'text-green-500' : item.status === 'no' ? 'text-red-500' : 'text-gray-700'}`}>{item.status}</span>
             </div>
           ))}
         </div>

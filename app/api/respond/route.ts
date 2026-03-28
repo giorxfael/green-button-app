@@ -1,29 +1,35 @@
-import { NextResponse } from 'next/server';
-import admin from 'firebase-admin';
+// ... (keep the imports and admin.initializeApp part same as before)
 
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    }),
-  });
-}
-
-const db = admin.firestore();
-
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    const { answer, docId } = await req.json();
-    
-    await db.collection('notifications').doc(docId).update({
-      status: answer,
-      respondedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    const { answer } = await request.json();
+    const currentRef = db.collection("notifications").doc("current");
+    const currentSnap = await currentRef.get();
+    const historyId = currentSnap.data()?.historyId;
+
+    const updateData = { status: answer, respondedAt: admin.firestore.FieldValue.serverTimestamp() };
+    await currentRef.update(updateData);
+    if (historyId) await db.collection("history").doc(historyId).update(updateData);
+
+    const senderTokenDoc = await db.collection("tokens").doc("sender").get();
+    const senderToken = senderTokenDoc.data()?.token;
+
+    if (senderToken) {
+      // CUSTOM PHRASES FOR NOTIFICATION
+      const messageBody = answer === 'yes' ? "Yes I'm all yours!" : "HELL NO";
+      
+      await messaging.send({
+        token: senderToken,
+        notification: {
+          title: "Response Received!",
+          body: messageBody,
+        },
+        apns: { payload: { aps: { sound: "default" } } },
+      });
+    }
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json({ error: "Failed" }, { status: 500 });
   }
 }
