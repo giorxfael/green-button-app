@@ -23,6 +23,7 @@ export default function Home() {
     setIsRegistered(localStorage.getItem('isRegistered') === 'true');
   }, []);
 
+  // 1. Listen for Pings/Responses
   useEffect(() => {
     if (!mounted || !role) return;
 
@@ -60,6 +61,7 @@ export default function Home() {
     return () => unsubscribe();
   }, [mounted, role, isRegistered]);
 
+  // 2. History Listener
   useEffect(() => {
     if (!mounted) return;
     const q = query(collection(db, "history"), orderBy("timestamp", "desc"), limit(5));
@@ -95,13 +97,17 @@ export default function Home() {
     if (!res.ok) setStatus('Failed.');
   };
 
+  // RESTORED: This is what iPhone 2 needs to get notifications back
   const registerAsReceiver = async () => {
     setStatus('Activating...');
     try {
       const messaging = await getMessagingInstance();
       if (!messaging) return;
       const permission = await Notification.requestPermission();
-      if (permission !== 'granted') return;
+      if (permission !== 'granted') {
+        setStatus('Permission Denied ❌');
+        return;
+      }
       const token = await getToken(messaging, { vapidKey: process.env.NEXT_PUBLIC_VAPID_KEY });
       await setDoc(doc(db, "tokens", "receiver"), { token: token, lastUpdated: new Date() });
       localStorage.setItem('isRegistered', 'true');
@@ -133,22 +139,14 @@ export default function Home() {
         ) : (
           <div className="flex flex-col items-center justify-center">
             <div className="w-64 h-64 flex items-center justify-center">
-               <button 
-                 onClick={sendPing} 
-                 className="w-full h-full rounded-full bg-green-600 shadow-[0_0_60px_rgba(34,197,94,0.5)] active:scale-90 flex items-center justify-center text-4xl font-black uppercase tracking-tighter transition-all"
-               >
-                 PUSH
-               </button>
+               <button onClick={sendPing} className="w-full h-full rounded-full bg-green-600 shadow-[0_0_60px_rgba(34,197,94,0.5)] active:scale-90 flex items-center justify-center text-4xl font-black uppercase tracking-tighter transition-all">PUSH</button>
             </div>
-
             <div className="h-32 flex flex-col items-center justify-center mt-6">
               <p className={`font-mono text-2xl transition-all duration-300 ${status.includes('yours') ? 'text-green-400' : status.includes('HELL') ? 'text-red-400' : 'text-yellow-400'}`}>
                 {status}
               </p>
               {responseTime && (
-                <p className="text-gray-500 font-mono text-xs mt-2 uppercase tracking-widest italic">
-                  at {responseTime}
-                </p>
+                <p className="text-gray-500 font-mono text-[10px] mt-2 uppercase tracking-widest italic">at {responseTime}</p>
               )}
             </div>
           </div>
