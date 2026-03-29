@@ -20,11 +20,11 @@ export async function POST(request: Request) {
     // Set expiration for 24 hours from now
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
+    // Inside your POST function in app/api/chat/route.ts
     await db.collection("messages").add({
-      text,
-      senderId,
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      expiresAt: admin.firestore.Timestamp.fromDate(expiresAt)
+    text,
+    senderId,
+    timestamp: admin.firestore.FieldValue.serverTimestamp(), // This is the key field
     });
 
     return NextResponse.json({ success: true });

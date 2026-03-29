@@ -38,6 +38,22 @@ export default function Home() {
     if (savedId) setMyId(savedId);
   }, []);
 
+  const getQuietStreak = () => {
+    if (history.length === 0) return { time: "0h 0m", emoji: "🆕" };
+    const lastPing = history.find(item => item.timestamp)?.timestamp?.toDate();
+    if (!lastPing) return { time: "0h 0m", emoji: "🐣" };
+    const diffInMs = new Date().getTime() - lastPing.getTime();
+    const hours = Math.floor(diffInMs / (1000 * 60 * 60));
+    const minutes = Math.floor((diffInMs / (1000 * 60)) % 60);
+    const days = Math.floor(hours / 24);
+    let emoji = "🤫"; 
+    if (hours >= 1) emoji = "🧘";
+    if (days >= 1) emoji = "🏆";
+    return { time: days > 0 ? `${days}d ${hours % 24}h` : `${hours}h ${minutes}m`, emoji };
+  };
+
+  const streak = getQuietStreak();
+
   // 1. PING LISTENER
   useEffect(() => {
     if (!mounted || !myId) return;
@@ -60,14 +76,14 @@ export default function Home() {
     return () => unsubscribe();
   }, [mounted, myId]);
 
-  // 2. SNAPCHAT CHAT LISTENER (24hr Filter)
+  // 2. SNAPCHAT CHAT LISTENER (Manual 24hr Filter)
   useEffect(() => {
     if (!mounted || !isChatOpen) return;
-    const now = new Date();
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const q = query(
       collection(db, "messages"),
-      where("expiresAt", ">", Timestamp.fromDate(now)),
-      orderBy("expiresAt", "asc")
+      where("timestamp", ">=", Timestamp.fromDate(twentyFourHoursAgo)),
+      orderBy("timestamp", "asc")
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -134,11 +150,10 @@ export default function Home() {
   };
 
   if (!mounted) return <div className="min-h-screen bg-black" />;
-  
   if (!myId) return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-black gap-6 p-6">
-       <button onClick={() => register('iPhone1')} className="w-full max-w-xs border-2 border-white/10 py-6 rounded-3xl font-black italic text-xl text-white">IPHONE 1</button>
-       <button onClick={() => register('iPhone2')} className="w-full max-w-xs border-2 border-white/10 py-6 rounded-3xl font-black italic text-xl text-white">IPHONE 2</button>
+       <button onClick={() => register('iPhone1')} className="w-full max-w-xs border-2 border-white/10 py-6 rounded-3xl font-black italic text-xl text-white uppercase tracking-tighter">iPhone 1</button>
+       <button onClick={() => register('iPhone2')} className="w-full max-w-xs border-2 border-white/10 py-6 rounded-3xl font-black italic text-xl text-white uppercase tracking-tighter">iPhone 2</button>
     </div>
   );
 
@@ -146,49 +161,41 @@ export default function Home() {
   const amIWaiting = appState?.status === 'pending' && appState?.sender === myId;
 
   return (
-    <div className="flex flex-col items-center min-h-screen bg-black text-white p-6 text-center overflow-hidden relative">
+    <div className="flex flex-col h-screen bg-black text-white text-center overflow-hidden relative">
       
-      {/* CHAT TOGGLE BUTTON */}
+      {/* CHAT TOGGLE */}
       <button onClick={() => setIsChatOpen(!isChatOpen)} className="absolute top-10 left-8 z-50 opacity-40 hover:opacity-100 transition-all active:scale-90">
-        {isChatOpen ? <span className="font-black italic text-[10px] tracking-widest uppercase">Back</span> : <span className="text-2xl">💬</span>}
+        {isChatOpen ? <span className="font-black italic text-[10px] tracking-widest uppercase text-blue-500">Back</span> : <span className="text-2xl">💬</span>}
       </button>
 
       {isChatOpen ? (
-        /* DISAPPEARING CHAT VIEW */
-        <div className="flex flex-col w-full max-w-md h-full pt-16 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="flex-grow overflow-y-auto px-4 space-y-4 pb-10">
+        /* IPHONE MESSAGES VIEW */
+        <div className="flex flex-col h-full pt-20 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className="flex-grow overflow-y-auto px-4 space-y-2 pb-20 scrollbar-hide flex flex-col">
+             <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest py-4 text-center">Messages expire in 24h</p>
             {messages.map((msg) => (
               <div key={msg.id} className={`flex w-full ${msg.senderId === myId ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[75%] px-4 py-3 rounded-2xl text-sm font-bold italic tracking-tight ${msg.senderId === myId ? 'bg-blue-600 text-white rounded-br-none' : 'bg-zinc-800 text-zinc-200 rounded-bl-none'}`}>
-                  {msg.text}
-                </div>
+                <div className={`max-w-[70%] px-4 py-2 rounded-[20px] text-[15px] leading-tight font-medium ${msg.senderId === myId ? 'bg-blue-600 text-white rounded-br-none' : 'bg-[#262629] text-white rounded-bl-none'}`}>{msg.text}</div>
               </div>
             ))}
             <div ref={scrollRef} />
           </div>
-          
-          <div className="p-6 border-t border-white/5 bg-black/80 backdrop-blur-xl">
-            <div className="relative flex items-center">
-              <input 
-                type="text" placeholder="MESSAGE..." value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && sendChatMessage()}
-                className="w-full bg-zinc-900 border border-white/10 rounded-full py-4 px-6 text-sm font-black italic focus:outline-none focus:border-blue-500 transition-all uppercase tracking-widest"
+          <div className="absolute bottom-0 w-full bg-[#121212]/90 backdrop-blur-2xl border-t border-white/10 px-4 py-3 pb-8">
+            <div className="relative flex items-center bg-[#1c1c1e] rounded-full border border-white/10 pr-2">
+              <input type="text" placeholder="iMessage" value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && sendChatMessage()}
+                className="w-full bg-transparent py-2.5 px-4 text-sm focus:outline-none placeholder:text-zinc-600"
               />
-              <button onClick={sendChatMessage} className="absolute right-4 text-blue-500 font-black italic text-[10px] tracking-tighter">SEND</button>
+              <button onClick={sendChatMessage} disabled={!chatInput.trim()} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${chatInput.trim() ? 'bg-blue-600' : 'bg-zinc-700 opacity-30'}`}><span className="text-white text-lg">↑</span></button>
             </div>
-            <p className="text-[8px] text-zinc-600 font-black italic mt-3 tracking-[0.2em] uppercase text-center">Snaps disappear in 24h</p>
           </div>
         </div>
       ) : (
         /* ORIGINAL PING VIEW */
-        <>
+        <div className="flex flex-col h-full pt-20">
           <div className="relative flex-grow flex items-center justify-center w-full">
             {isIBeingPinged ? (
-              <div className="w-full max-w-xs z-10 space-y-8 animate-in fade-in zoom-in duration-500">
-                <div className="flex flex-col items-center justify-center min-h-[160px] px-4">
-                  <p className="text-3xl font-black tracking-tighter leading-none text-white uppercase italic">{appState.message}</p>
-                </div>
+              <div className="w-full max-w-xs z-10 space-y-8">
+                <div className="flex flex-col items-center justify-center min-h-[160px] px-4"><p className="text-3xl font-black tracking-tighter leading-none text-white uppercase italic">{appState.message}</p></div>
                 <div className="relative w-full mb-4 px-4">
                   <input type="text" placeholder="REPLY..." value={replyMsg} onChange={(e) => setReplyMsg(e.target.value)}
                     className="w-full bg-transparent border-b border-white/40 px-2 py-3 text-center focus:outline-none focus:border-white transition-all text-lg font-black tracking-[0.1em] uppercase italic placeholder:text-zinc-800"
@@ -220,8 +227,17 @@ export default function Home() {
             )}
           </div>
 
+          {/* RESTORED: QUIET STREAK */}
+          <div className="w-full max-w-sm mx-auto flex items-center justify-between px-6 mb-4 opacity-60">
+            <div className="flex flex-col items-start text-left">
+              <span className="text-[8px] text-zinc-500 uppercase tracking-[0.3em] font-black leading-none mb-1 italic">Quiet Streak</span>
+              <span className="text-sm font-mono text-zinc-300 tabular-nums font-bold">{streak.time}</span>
+            </div>
+            <span className="text-2xl drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">{streak.emoji}</span>
+          </div>
+
           {/* HISTORY BOX */}
-          <div className="w-full max-w-sm bg-zinc-900/40 rounded-3xl p-6 border border-white/5 backdrop-blur-md mb-6 text-left">
+          <div className="w-full max-w-sm mx-auto bg-zinc-900/40 rounded-3xl p-6 border border-white/5 backdrop-blur-md mb-10 text-left">
             <h2 className="text-[10px] uppercase tracking-[0.3em] text-gray-600 mb-4 font-black ml-2 italic">History</h2>
             <div className="space-y-4">
               {history.map((item) => (
@@ -238,7 +254,7 @@ export default function Home() {
               ))}
             </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
