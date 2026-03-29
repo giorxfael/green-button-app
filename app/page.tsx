@@ -9,6 +9,7 @@ export default function Home() {
   const [appState, setAppState] = useState<any>(null);
   const [status, setStatus] = useState('');
   const [customMsg, setCustomMsg] = useState('');
+  const [replyMsg, setReplyMsg] = useState(''); // Added for new feature
   const [responseTime, setResponseTime] = useState<string | null>(null);
   const [history, setHistory] = useState<any[]>([]);
   const [isRegistered, setIsRegistered] = useState(false);
@@ -23,7 +24,6 @@ export default function Home() {
     setIsRegistered(localStorage.getItem('isRegistered') === 'true');
   }, []);
 
-  // 1. SHARED STREAK LOGIC
   const getQuietStreak = () => {
     if (history.length === 0) return { time: "0h 0m", emoji: "🆕" };
     const lastPing = history.find(item => item.timestamp)?.timestamp?.toDate();
@@ -40,7 +40,6 @@ export default function Home() {
 
   const streak = getQuietStreak();
 
-  // 2. SYNC GLOBAL STATE
   useEffect(() => {
     if (!mounted || !myId) return;
     const unsubscribe = onSnapshot(doc(db, "notifications", "current"), (docSnap) => {
@@ -48,10 +47,11 @@ export default function Home() {
         const data = docSnap.data();
         setAppState(data);
         const timeOfResponse = data.respondedAt?.toDate().getTime() || 0;
-        if (timeOfResponse > sessionStart.current && (data.status === 'yes' || data.status === 'no')) {
+        if (timeOfResponse > sessionStart.current && data.status !== 'pending') {
           const timeStr = data.respondedAt?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           setResponseTime(timeStr);
-          setStatus(data.status === 'yes' ? "YES! ✅" : "NO ❌");
+          // Show the text reply if they typed one, otherwise show YES/NO
+          setStatus(data.status === 'replied' ? `"${data.message}"` : `${data.status.toUpperCase()}! ✅`);
         } else if (data.status === 'pending' && data.sender === myId) {
           setStatus('Waiting... ⏳');
         } else {
@@ -62,7 +62,6 @@ export default function Home() {
     return () => unsubscribe();
   }, [mounted, myId]);
 
-  // 3. SYNC HISTORY
   useEffect(() => {
     if (!mounted) return;
     const q = query(collection(db, "history"), orderBy("timestamp", "desc"), limit(5));
@@ -74,22 +73,25 @@ export default function Home() {
 
   const sendPing = async () => {
     setStatus('Sending...');
-    const res = await fetch('/api/notify', { 
+    await fetch('/api/notify', { 
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: customMsg || "🔔", senderId: myId }) 
     });
-    if (res.status === 409) setStatus('Too slow! 💨');
-    else if (res.ok) { setCustomMsg(''); setStatus('Waiting... ⏳'); }
+    setCustomMsg('');
   };
 
-  const handleResponse = async (answer: 'yes' | 'no') => {
+  const handleResponse = async (answer: 'yes' | 'no' | 'text') => {
     setStatus("Sending...");
     await fetch('/api/respond', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ answer })
+      body: JSON.stringify({ 
+        answer: answer === 'text' ? 'replied' : answer,
+        textResponse: answer === 'text' ? replyMsg : null 
+      })
     });
+    setReplyMsg('');
     setStatus("");
   };
 
@@ -98,8 +100,6 @@ export default function Home() {
     localStorage.setItem('myDeviceId', id);
     const messaging = await getMessagingInstance();
     if (!messaging) return;
-    const permission = await Notification.requestPermission();
-    if (permission !== 'granted') return;
     const token = await getToken(messaging, { vapidKey: process.env.NEXT_PUBLIC_VAPID_KEY });
     await setDoc(doc(db, "tokens", id), { token });
     localStorage.setItem('isRegistered', 'true');
@@ -108,7 +108,6 @@ export default function Home() {
 
   if (!mounted) return <div className="min-h-screen bg-black" />;
 
-  // SELECTION SCREEN
   if (!myId) return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-black gap-6 p-6">
        <span className="text-zinc-600 text-[10px] uppercase tracking-[0.5em] font-black italic">Identity</span>
@@ -122,22 +121,26 @@ export default function Home() {
 
   return (
     <div className="flex flex-col items-center min-h-screen bg-black text-white p-6 text-center overflow-x-hidden relative">
-      
-      {/* 1. TOP INTERACTION ZONE (UNIFIED) */}
       <div className="relative flex-grow flex items-center justify-center w-full">
         {isIBeingPinged ? (
           <div className="w-full max-w-xs z-10 space-y-8 animate-in fade-in zoom-in duration-500">
-            <div className="flex flex-col items-center justify-center min-h-[200px] px-4">
-              {appState.message && [...appState.message].length <= 2 ? (
-                <div className="text-9xl animate-bounce drop-shadow-[0_0_35px_rgba(255,255,255,0.3)]">{appState.message}</div>
-              ) : (
-                <div className="animate-in fade-in zoom-in duration-500">
-                  <span className="text-zinc-500 text-[10px] uppercase tracking-[0.4em] font-black mb-2 block italic tracking-[0.3em]">Incoming</span>
-                  <p className="text-3xl font-black tracking-tighter leading-none text-white uppercase italic">{appState.message}</p>
-                </div>
+            <div className="flex flex-col items-center justify-center min-h-[160px] px-4">
+              <p className="text-3xl font-black tracking-tighter leading-none text-white uppercase italic">{appState.message}</p>
+            </div>
+            
+            {/* TEXT REPLY INPUT */}
+            <div className="relative w-full mb-4">
+              <input 
+                type="text" placeholder="REPLY..." value={replyMsg}
+                onChange={(e) => setReplyMsg(e.target.value)}
+                className="w-full bg-transparent border-b border-white/20 px-2 py-3 text-center focus:outline-none focus:border-green-500 transition-all text-lg font-black tracking-[0.1em] uppercase italic placeholder:text-zinc-900"
+              />
+              {replyMsg && (
+                <button onClick={() => handleResponse('text')} className="absolute right-0 bottom-3 text-green-500 font-black text-xs tracking-widest animate-pulse">SEND</button>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-4 pt-4">
+
+            <div className="grid grid-cols-2 gap-4">
               <button onClick={() => handleResponse('yes')} className="bg-transparent border-2 border-green-500 text-green-500 py-6 rounded-[2rem] text-2xl font-black active:scale-95 transition-all">YES</button>
               <button onClick={() => handleResponse('no')} className="bg-transparent border-2 border-red-500 text-red-500 py-6 rounded-[2rem] text-2xl font-black active:scale-95 transition-all">NO</button>
             </div>
@@ -151,6 +154,7 @@ export default function Home() {
                 onChange={(e) => setCustomMsg(e.target.value)}
                 className="w-full bg-transparent border-b border-white/20 px-2 py-4 text-center focus:outline-none focus:border-green-500 transition-all text-xl font-black tracking-[0.2em] placeholder:text-zinc-800 placeholder:font-black uppercase italic"
               />
+              <div className="absolute bottom-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
             </div>
             <div className="w-64 h-64 flex items-center justify-center">
                <button 
@@ -169,7 +173,7 @@ export default function Home() {
         )}
       </div>
 
-      {/* 2. SHARED STATS & HISTORY (UNIFIED) */}
+      {/* QUIET STREAK */}
       <div className="w-full max-w-sm flex items-center justify-between px-6 mb-4 opacity-60">
         <div className="flex flex-col items-start text-left">
           <span className="text-[8px] text-zinc-500 uppercase tracking-[0.3em] font-black leading-none mb-1 italic">Quiet Streak</span>
@@ -178,19 +182,20 @@ export default function Home() {
         <span className="text-2xl drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">{streak.emoji}</span>
       </div>
 
+      {/* HISTORY BOX */}
       <div className="w-full max-w-sm bg-zinc-900/40 rounded-3xl p-6 border border-white/5 backdrop-blur-md mb-6 text-left">
         <h2 className="text-[10px] uppercase tracking-[0.3em] text-gray-600 mb-4 font-black ml-2 italic">History</h2>
         <div className="space-y-4">
           {history.map((item) => (
             <div key={item.id} className="flex justify-between items-center text-xs border-b border-white/5 pb-2">
               <div className="flex flex-col">
-                <span className={`text-[8px] font-black uppercase ${item.status !== 'pending' ? 'text-blue-500' : 'text-zinc-800'}`}>{item.status !== 'pending' ? "PICKED" : "SENT"}</span>
+                <span className={`text-[8px] font-black uppercase ${item.status !== 'pending' ? 'text-blue-500' : 'text-zinc-800'}`}>{item.status !== 'pending' ? (item.status === 'replied' ? "REPLY" : "PICKED") : "SENT"}</span>
                 <span className="text-gray-400 font-mono">{item.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-xs text-zinc-600 italic max-w-[80px] truncate">{item.message}</span>
-                <span className={`font-black uppercase text-sm italic ${item.status === 'yes' ? 'text-green-500' : item.status === 'no' ? 'text-red-500' : 'text-zinc-800'}`}>
-                  {item.status === 'yes' ? "YES" : item.status === 'no' ? "NO" : "..."}
+                <span className={`font-black uppercase text-[10px] italic ${item.status === 'yes' ? 'text-green-500' : item.status === 'no' ? 'text-red-500' : 'text-blue-400'}`}>
+                  {item.status === 'yes' ? "YES" : item.status === 'no' ? "NO" : "TXT"}
                 </span>
               </div>
             </div>

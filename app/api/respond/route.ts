@@ -12,34 +12,24 @@ if (!admin.apps.length) {
 }
 
 const db = admin.firestore();
-const messaging = admin.messaging();
 
 export async function POST(request: Request) {
   try {
-    const { answer } = await request.json();
-    const currentRef = db.collection("notifications").doc("current");
-    const currentSnap = await currentRef.get();
-    const historyId = currentSnap.data()?.historyId;
+    const { answer, textResponse } = await request.json();
+    const notificationRef = db.collection("notifications").doc("current");
+    const snap = await notificationRef.get();
+    const data = snap.data();
 
-    const updateData = { status: answer, respondedAt: admin.firestore.FieldValue.serverTimestamp() };
-    await currentRef.update(updateData);
-    if (historyId) await db.collection("history").doc(historyId).update(updateData);
+    if (data?.historyId) {
+      const updateData = {
+        // If text exists, status is "replied", otherwise it's the button value
+        status: textResponse ? "replied" : answer,
+        message: textResponse || data.message, 
+        respondedAt: admin.firestore.FieldValue.serverTimestamp(),
+      };
 
-    const senderTokenDoc = await db.collection("tokens").doc("sender").get();
-    const senderToken = senderTokenDoc.data()?.token;
-
-    if (senderToken) {
-      // CUSTOM PHRASES FOR NOTIFICATION
-      const messageBody = answer === 'yes' ? "Yes I'm all yours!" : "HELL NO";
-      
-      await messaging.send({
-        token: senderToken,
-        notification: {
-          title: "Response Received!",
-          body: messageBody,
-        },
-        apns: { payload: { aps: { sound: "default" } } },
-      });
+      await db.collection("history").doc(data.historyId).update(updateData);
+      await notificationRef.update(updateData);
     }
 
     return NextResponse.json({ success: true });
