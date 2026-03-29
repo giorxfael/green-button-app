@@ -13,8 +13,6 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
-// app/api/respond/route.ts
-
 export async function POST(request: Request) {
   try {
     const { answer, textResponse } = await request.json();
@@ -25,12 +23,12 @@ export async function POST(request: Request) {
     if (data?.historyId) {
       const updateData = {
         status: textResponse ? "replied" : answer,
-        // CRITICAL: Save the text response to a NEW field called replyText
-        // Do NOT update the 'message' field here
+        // CRITICAL: We save the reply to a DIFFERENT field
         replyText: textResponse || null, 
         respondedAt: admin.firestore.FieldValue.serverTimestamp(),
       };
 
+      // This updates the history log and the current lock WITHOUT overwriting 'message'
       await db.collection("history").doc(data.historyId).update(updateData);
       await notificationRef.update(updateData);
     }

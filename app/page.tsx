@@ -200,15 +200,14 @@ export default function Home() {
                 </div>
                 
                 <div className="flex flex-col items-end gap-1 max-w-[180px] text-right">
-                  {/* ORIGINAL SENDER MESSAGE */}
-                  <span className="text-xs text-zinc-500 italic">
+                  {/* 1. THE PING (Always shows original text) */}
+                  <span className="text-[10px] text-zinc-500 italic opacity-80">
                     {item.message}
                   </span>
                   
-                  {/* RECEIVER REPLY */}
+                  {/* 2. THE REPLY (Shows YES, NO, or the typed replyText) */}
                   {item.status !== 'pending' && (
                     <span className={`font-black uppercase text-sm italic leading-tight ${item.status === 'yes' ? 'text-green-500' : item.status === 'no' ? 'text-red-500' : 'text-blue-400'}`}>
-                      {/* Use replyText if it's a text reply, otherwise use the status (YES/NO) */}
                       {isReply ? item.replyText : item.status}
                     </span>
                   )}
