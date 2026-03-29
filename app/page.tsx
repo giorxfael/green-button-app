@@ -9,7 +9,7 @@ export default function Home() {
   const [appState, setAppState] = useState<any>(null);
   const [status, setStatus] = useState('');
   const [customMsg, setCustomMsg] = useState('');
-  const [replyMsg, setReplyMsg] = useState(''); // Added for new feature
+  const [replyMsg, setReplyMsg] = useState(''); 
   const [responseTime, setResponseTime] = useState<string | null>(null);
   const [history, setHistory] = useState<any[]>([]);
   const [isRegistered, setIsRegistered] = useState(false);
@@ -50,7 +50,6 @@ export default function Home() {
         if (timeOfResponse > sessionStart.current && data.status !== 'pending') {
           const timeStr = data.respondedAt?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           setResponseTime(timeStr);
-          // Show the text reply if they typed one, otherwise show YES/NO
           setStatus(data.status === 'replied' ? `"${data.message}"` : `${data.status.toUpperCase()}! ✅`);
         } else if (data.status === 'pending' && data.sender === myId) {
           setStatus('Waiting... ⏳');
@@ -124,25 +123,28 @@ export default function Home() {
       <div className="relative flex-grow flex items-center justify-center w-full">
         {isIBeingPinged ? (
           <div className="w-full max-w-xs z-10 space-y-8 animate-in fade-in zoom-in duration-500">
-            <div className="flex flex-col items-center justify-center min-h-[160px] px-4">
+            <div className="flex flex-col items-center justify-center min-h-[160px] px-4 text-center">
               <p className="text-3xl font-black tracking-tighter leading-none text-white uppercase italic">{appState.message}</p>
             </div>
             
-            {/* TEXT REPLY INPUT */}
-            <div className="relative w-full mb-4">
+            {/* UPDATED: WHITE REPLY BAR */}
+            <div className="relative w-full mb-4 px-4">
               <input 
-                type="text" placeholder="REPLY..." value={replyMsg}
+                type="text" 
+                placeholder="REPLY..." 
+                value={replyMsg}
                 onChange={(e) => setReplyMsg(e.target.value)}
-                className="w-full bg-transparent border-b border-white/20 px-2 py-3 text-center focus:outline-none focus:border-green-500 transition-all text-lg font-black tracking-[0.1em] uppercase italic placeholder:text-zinc-900"
+                className="w-full bg-transparent border-b border-white/40 px-2 py-3 text-center focus:outline-none focus:border-white transition-all text-lg font-black tracking-[0.1em] uppercase italic placeholder:text-zinc-800"
               />
               {replyMsg && (
-                <button onClick={() => handleResponse('text')} className="absolute right-0 bottom-3 text-green-500 font-black text-xs tracking-widest animate-pulse">SEND</button>
+                <button onClick={() => handleResponse('text')} className="absolute right-6 bottom-3 text-white font-black text-[10px] tracking-widest animate-pulse">SEND</button>
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <button onClick={() => handleResponse('yes')} className="bg-transparent border-2 border-green-500 text-green-500 py-6 rounded-[2rem] text-2xl font-black active:scale-95 transition-all">YES</button>
-              <button onClick={() => handleResponse('no')} className="bg-transparent border-2 border-red-500 text-red-500 py-6 rounded-[2rem] text-2xl font-black active:scale-95 transition-all">NO</button>
+            {/* UPDATED: SMALLER BUTTONS */}
+            <div className="grid grid-cols-2 gap-4 px-8">
+              <button onClick={() => handleResponse('yes')} className="bg-transparent border border-green-500 text-green-500 py-4 rounded-3xl text-lg font-black active:scale-95 transition-all">YES</button>
+              <button onClick={() => handleResponse('no')} className="bg-transparent border border-red-500 text-red-500 py-4 rounded-3xl text-lg font-black active:scale-95 transition-all">NO</button>
             </div>
           </div>
         ) : (
@@ -182,7 +184,7 @@ export default function Home() {
         <span className="text-2xl drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">{streak.emoji}</span>
       </div>
 
-      {/* HISTORY BOX - UPDATED FEATURE */}
+      {/* HISTORY BOX */}
       <div className="w-full max-w-sm bg-zinc-900/40 rounded-3xl p-6 border border-white/5 backdrop-blur-md mb-6 text-left">
         <h2 className="text-[10px] uppercase tracking-[0.3em] text-gray-600 mb-4 font-black ml-2 italic">History</h2>
         <div className="space-y-4">
@@ -197,7 +199,6 @@ export default function Home() {
                   <span className="text-gray-400 font-mono">{item.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
                 
-                {/* Unified Threaded Display */}
                 <div className="flex flex-col items-end gap-1 max-w-[180px]">
                   <span className="text-xs text-zinc-600 italic truncate w-full text-right">
                     "{item.message}"
