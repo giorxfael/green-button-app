@@ -22,7 +22,6 @@ export async function POST(request: Request) {
 
     if (data?.historyId) {
       const updateData = {
-        // If text exists, status is "replied", otherwise it's the button value
         status: textResponse ? "replied" : answer,
         message: textResponse || data.message, 
         respondedAt: admin.firestore.FieldValue.serverTimestamp(),
