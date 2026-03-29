@@ -182,39 +182,30 @@ export default function Home() {
         <span className="text-2xl drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">{streak.emoji}</span>
       </div>
 
-      {/* HISTORY BOX */}
+      {/* HISTORY BOX - REVERTED TO STABLE */}
       <div className="w-full max-w-sm bg-zinc-900/40 rounded-3xl p-6 border border-white/5 backdrop-blur-md mb-6 text-left">
         <h2 className="text-[10px] uppercase tracking-[0.3em] text-gray-600 mb-4 font-black ml-2 italic">History</h2>
         <div className="space-y-4">
-          {history.map((item) => {
-            const isReply = item.status === 'replied';
-            return (
-              <div key={item.id} className="flex justify-between items-start text-xs border-b border-white/5 pb-3">
-                <div className="flex flex-col">
-                  <span className={`text-[8px] font-black uppercase tracking-widest ${isReply ? 'text-purple-500' : item.status !== 'pending' ? 'text-blue-500' : 'text-zinc-800'}`}>
-                    {isReply ? "CONVO" : (item.status !== 'pending' ? "PICKED" : "SENT")}
-                  </span>
-                  <span className="text-gray-400 font-mono mt-1">
-                    {item.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-                
-                <div className="flex flex-col items-end gap-1 max-w-[180px] text-right">
-                  {/* 1. THE PING (Always shows original text) */}
-                  <span className="text-[10px] text-zinc-500 italic opacity-80">
-                    {item.message}
-                  </span>
-                  
-                  {/* 2. THE REPLY (Shows YES, NO, or the typed replyText) */}
-                  {item.status !== 'pending' && (
-                    <span className={`font-black uppercase text-sm italic leading-tight ${item.status === 'yes' ? 'text-green-500' : item.status === 'no' ? 'text-red-500' : 'text-blue-400'}`}>
-                      {isReply ? item.replyText : item.status}
-                    </span>
-                  )}
-                </div>
+          {history.map((item) => (
+            <div key={item.id} className="flex justify-between items-center text-xs border-b border-white/5 pb-2">
+              <div className="flex flex-col">
+                <span className={`text-[8px] font-black uppercase ${item.status !== 'pending' ? 'text-blue-500' : 'text-zinc-800'}`}>
+                  {item.status !== 'pending' ? "PICKED" : "SENT"}
+                </span>
+                <span className="text-gray-400 font-mono">
+                  {item.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
               </div>
-            );
-          })}
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-zinc-600 italic max-w-[80px] truncate">
+                  {item.message}
+                </span>
+                <span className={`font-black uppercase text-sm italic ${item.status === 'yes' ? 'text-green-500' : item.status === 'no' ? 'text-red-500' : 'text-blue-400'}`}>
+                  {item.status === 'yes' ? "YES" : item.status === 'no' ? "NO" : item.status === 'replied' ? "TXT" : "..."}
+                </span>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
