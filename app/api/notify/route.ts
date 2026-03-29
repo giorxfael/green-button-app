@@ -12,44 +12,52 @@ if (!admin.apps.length) {
 }
 
 const db = admin.firestore();
-const messaging = admin.messaging();
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const customMessage = body.message || "🔔";
+    const { message, senderId } = await request.json();
+    const notificationRef = db.collection("notifications").doc("current");
 
-    const tokenDoc = await db.collection("tokens").doc("receiver").get();
-    const token = tokenDoc.data()?.token;
+    // TRANSACTION: Prevents "Double Push"
+    await db.runTransaction(async (t) => {
+      const doc = await t.get(notificationRef);
+      const data = doc.data();
 
-    const historyRef = db.collection("history").doc();
-    const pingData = { 
-      status: "pending", 
-      message: customMessage,
-      timestamp: admin.firestore.FieldValue.serverTimestamp() 
-    };
-    await historyRef.set(pingData);
+      // If there is a pending ping, don't allow a new one
+      if (data?.status === "pending") {
+        throw new Error("ALREADY_PENDING");
+      }
 
-    await db.collection("notifications").doc("current").set({
-      ...pingData,
-      historyId: historyRef.id
+      const historyRef = db.collection("history").doc();
+      const pingData = { 
+        status: "pending", 
+        message: message || "🔔", 
+        sender: senderId, // Track who sent it
+        timestamp: admin.firestore.FieldValue.serverTimestamp() 
+      };
+
+      t.set(historyRef, pingData);
+      t.set(notificationRef, { ...pingData, historyId: historyRef.id });
     });
 
+    // Send Push Notification to the OTHER person
+    const targetId = senderId === 'iPhone1' ? 'iPhone2' : 'iPhone1';
+    const tokenDoc = await db.collection("tokens").doc(targetId).get();
+    const token = tokenDoc.data()?.token;
+
     if (token) {
-      await messaging.send({
+      await admin.messaging().send({
         token: token,
-        notification: { 
-          title: "BGB", 
-          body: "Ping Received" // Standardized as requested
-        },
-        android: { priority: "high" },
+        notification: { title: "BGB", body: "Ping Received" },
         apns: { payload: { aps: { sound: "default" } } },
       });
     }
 
     return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Notification Error:", error);
+  } catch (error: any) {
+    if (error.message === "ALREADY_PENDING") {
+      return NextResponse.json({ error: "Conflict" }, { status: 409 });
+    }
     return NextResponse.json({ error: "Failed" }, { status: 500 });
   }
 }
