@@ -50,7 +50,7 @@ export default function Home() {
         if (timeOfResponse > sessionStart.current && data.status !== 'pending') {
           const timeStr = data.respondedAt?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           setResponseTime(timeStr);
-          setStatus(data.status === 'replied' ? `"${data.message}"` : `${data.status.toUpperCase()}! ✅`);
+          setStatus(data.status === 'replied' ? `"${data.message}"` : `${data.status.toUpperCase()}! `);
         } else if (data.status === 'pending' && data.sender === myId) {
           setStatus('Waiting... ⏳');
         } else {
