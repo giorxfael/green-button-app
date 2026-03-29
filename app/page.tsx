@@ -10,7 +10,8 @@ import {
   orderBy, 
   limit, 
   where, 
-  Timestamp 
+  Timestamp,
+  updateDoc
 } from 'firebase/firestore';
 import { getToken } from 'firebase/messaging';
 
@@ -38,22 +39,6 @@ export default function Home() {
     if (savedId) setMyId(savedId);
   }, []);
 
-  const getQuietStreak = () => {
-    if (history.length === 0) return { time: "0h 0m", emoji: "🆕" };
-    const lastPing = history.find(item => item.timestamp)?.timestamp?.toDate();
-    if (!lastPing) return { time: "0h 0m", emoji: "🐣" };
-    const diffInMs = new Date().getTime() - lastPing.getTime();
-    const hours = Math.floor(diffInMs / (1000 * 60 * 60));
-    const minutes = Math.floor((diffInMs / (1000 * 60)) % 60);
-    const days = Math.floor(hours / 24);
-    let emoji = "🤫"; 
-    if (hours >= 1) emoji = "🧘";
-    if (days >= 1) emoji = "🏆";
-    return { time: days > 0 ? `${days}d ${hours % 24}h` : `${hours}h ${minutes}m`, emoji };
-  };
-
-  const streak = getQuietStreak();
-
   // 1. PING LISTENER
   useEffect(() => {
     if (!mounted || !myId) return;
@@ -76,7 +61,7 @@ export default function Home() {
     return () => unsubscribe();
   }, [mounted, myId]);
 
-  // 2. SNAPCHAT CHAT LISTENER (Manual 24hr Filter)
+  // 2. SNAPCHAT CHAT LISTENER (24hr Filter)
   useEffect(() => {
     if (!mounted || !isChatOpen) return;
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -94,7 +79,19 @@ export default function Home() {
     return () => unsubscribe();
   }, [mounted, isChatOpen]);
 
-  // 3. HISTORY LISTENER
+  // 3. SEEN LOGIC: Mark incoming messages as read when chat is open
+  useEffect(() => {
+    if (!mounted || !isChatOpen || !messages.length || !myId) return;
+
+    const unseenMessages = messages.filter(msg => msg.senderId !== myId && !msg.seen);
+    
+    unseenMessages.forEach(async (msg) => {
+      const msgRef = doc(db, "messages", msg.id);
+      await updateDoc(msgRef, { seen: true });
+    });
+  }, [isChatOpen, messages, myId, mounted]);
+
+  // 4. HISTORY LISTENER
   useEffect(() => {
     if (!mounted) return;
     const q = query(collection(db, "history"), orderBy("timestamp", "desc"), limit(5));
@@ -103,6 +100,22 @@ export default function Home() {
     });
     return () => unsubscribe();
   }, [mounted]);
+
+  const getQuietStreak = () => {
+    if (history.length === 0) return { time: "0h 0m", emoji: "🆕" };
+    const lastPing = history.find(item => item.timestamp)?.timestamp?.toDate();
+    if (!lastPing) return { time: "0h 0m", emoji: "🐣" };
+    const diffInMs = new Date().getTime() - lastPing.getTime();
+    const hours = Math.floor(diffInMs / (1000 * 60 * 60));
+    const minutes = Math.floor((diffInMs / (1000 * 60)) % 60);
+    const days = Math.floor(hours / 24);
+    let emoji = "🤫"; 
+    if (hours >= 1) emoji = "🧘";
+    if (days >= 1) emoji = "🏆";
+    return { time: days > 0 ? `${days}d ${hours % 24}h` : `${hours}h ${minutes}m`, emoji };
+  };
+
+  const streak = getQuietStreak();
 
   const sendPing = async () => {
     setStatus('Sending...');
@@ -163,21 +176,43 @@ export default function Home() {
   return (
     <div className="flex flex-col h-screen bg-black text-white text-center overflow-hidden relative">
       
-      {/* CHAT TOGGLE */}
-      <button onClick={() => setIsChatOpen(!isChatOpen)} className="absolute top-10 left-8 z-50 opacity-40 hover:opacity-100 transition-all active:scale-90">
-        {isChatOpen ? <span className="font-black italic text-[10px] tracking-widest uppercase text-blue-500">Back</span> : <span className="text-2xl">💬</span>}
-      </button>
+      {/* IOS HEADER */}
+      <div className="absolute top-0 w-full z-50 bg-black/60 backdrop-blur-md px-6 py-4 flex items-center justify-between border-b border-white/5">
+        <button onClick={() => setIsChatOpen(!isChatOpen)} className="text-blue-500 font-medium flex items-center gap-1 text-sm active:opacity-50 transition-opacity">
+          {isChatOpen ? (
+            <><span className="text-lg">〈</span> <span>Back</span></>
+          ) : (
+            <span className="text-2xl">💬</span>
+          )}
+        </button>
+        <div className="flex flex-col items-center">
+            <div className="w-6 h-6 rounded-full bg-zinc-700 mb-1" />
+            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{isChatOpen ? "MESSAGES" : "STATUS"}</span>
+        </div>
+        <div className="w-10" />
+      </div>
 
       {isChatOpen ? (
         /* IPHONE MESSAGES VIEW */
         <div className="flex flex-col h-full pt-20 animate-in fade-in slide-in-from-bottom-2 duration-300">
-          <div className="flex-grow overflow-y-auto px-4 space-y-2 pb-20 scrollbar-hide flex flex-col">
+          <div className="flex-grow overflow-y-auto px-4 space-y-2 pb-24 scrollbar-hide flex flex-col">
              <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest py-4 text-center">Messages expire in 24h</p>
-            {messages.map((msg) => (
-              <div key={msg.id} className={`flex w-full ${msg.senderId === myId ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[70%] px-4 py-2 rounded-[20px] text-[15px] leading-tight font-medium ${msg.senderId === myId ? 'bg-blue-600 text-white rounded-br-none' : 'bg-[#262629] text-white rounded-bl-none'}`}>{msg.text}</div>
-              </div>
-            ))}
+            {messages.filter(msg => msg.text?.trim()).map((msg, idx) => {
+              const isMine = msg.senderId === myId;
+              const isLast = idx === messages.length - 1;
+              return (
+                <div key={msg.id} className="flex flex-col w-full">
+                  <div className={`flex w-full ${isMine ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[70%] px-4 py-2 rounded-[20px] text-[15px] leading-tight font-medium ${isMine ? 'bg-blue-600 text-white rounded-br-none' : 'bg-[#262629] text-white rounded-bl-none'}`}>{msg.text}</div>
+                  </div>
+                  {isMine && isLast && (
+                    <span className="text-[10px] text-zinc-500 font-bold mt-1 pr-1 text-right animate-in fade-in duration-300">
+                      {msg.seen ? 'Read' : 'Delivered'}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
             <div ref={scrollRef} />
           </div>
           <div className="absolute bottom-0 w-full bg-[#121212]/90 backdrop-blur-2xl border-t border-white/10 px-4 py-3 pb-8">
@@ -227,7 +262,7 @@ export default function Home() {
             )}
           </div>
 
-          {/* RESTORED: QUIET STREAK */}
+          {/* QUIET STREAK */}
           <div className="w-full max-w-sm mx-auto flex items-center justify-between px-6 mb-4 opacity-60">
             <div className="flex flex-col items-start text-left">
               <span className="text-[8px] text-zinc-500 uppercase tracking-[0.3em] font-black leading-none mb-1 italic">Quiet Streak</span>

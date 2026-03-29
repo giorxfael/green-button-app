@@ -21,10 +21,13 @@ export async function POST(request: Request) {
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     // Inside your POST function in app/api/chat/route.ts
+    // Inside your POST function in app/api/chat/route.ts
     await db.collection("messages").add({
     text,
     senderId,
-    timestamp: admin.firestore.FieldValue.serverTimestamp(), // This is the key field
+    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    expiresAt: admin.firestore.Timestamp.fromDate(expiresAt),
+    seen: false // Add this
     });
 
     return NextResponse.json({ success: true });
