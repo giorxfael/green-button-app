@@ -189,21 +189,25 @@ export default function Home() {
           {history.map((item) => {
             const isReply = item.status === 'replied';
             return (
-              <div key={item.id} className="flex justify-between items-start text-xs border-b border-white/5 pb-2">
+              <div key={item.id} className="flex justify-between items-start text-xs border-b border-white/5 pb-3">
                 <div className="flex flex-col">
-                  <span className={`text-[8px] font-black uppercase ${item.status !== 'pending' ? 'text-blue-500' : 'text-zinc-800'}`}>
+                  <span className={`text-[8px] font-black uppercase tracking-widest ${isReply ? 'text-purple-500' : item.status !== 'pending' ? 'text-blue-500' : 'text-zinc-800'}`}>
                     {isReply ? "CONVO" : (item.status !== 'pending' ? "PICKED" : "SENT")}
                   </span>
-                  <span className="text-gray-400 font-mono">{item.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                  <span className="text-gray-400 font-mono mt-1">
+                    {item.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
                 </div>
                 
-                {/* Unified Threaded Message Display */}
                 <div className="flex flex-col items-end gap-1 max-w-[180px]">
-                  <span className="text-xs text-zinc-600 italic truncate w-full text-right">
-                    "{item.message}"
+                  {/* The Original Message/Ping always shows here */}
+                  <span className="text-[10px] text-zinc-600 italic truncate w-full text-right opacity-50">
+                    Previous: "{item.message}"
                   </span>
-                  <span className={`font-black uppercase text-[10px] italic ${item.status === 'yes' ? 'text-green-500' : item.status === 'no' ? 'text-red-500' : 'text-blue-400'}`}>
-                    {item.status === 'yes' ? "YES" : item.status === 'no' ? "NO" : item.status === 'replied' ? "REPLIED" : "..."}
+                  
+                  {/* This now shows the actual Reply Text if status is 'replied' */}
+                  <span className={`font-black uppercase text-sm italic text-right leading-tight ${item.status === 'yes' ? 'text-green-500' : item.status === 'no' ? 'text-red-500' : 'text-blue-400'}`}>
+                    {isReply ? item.message : (item.status === 'yes' ? "YES" : item.status === 'no' ? "NO" : "...")}
                   </span>
                 </div>
               </div>
