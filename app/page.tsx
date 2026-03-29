@@ -50,7 +50,7 @@ export default function Home() {
         if (timeOfResponse > sessionStart.current && data.status !== 'pending') {
           const timeStr = data.respondedAt?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           setResponseTime(timeStr);
-          setStatus(data.status === 'replied' ? `"${data.message}"` : `${data.status.toUpperCase()}! `);
+          setStatus(data.status === 'replied' ? `"${data.message}"` : `${data.status.toUpperCase()}! ✅`);
         } else if (data.status === 'pending' && data.sender === myId) {
           setStatus('Waiting... ⏳');
         } else {
@@ -127,7 +127,6 @@ export default function Home() {
               <p className="text-3xl font-black tracking-tighter leading-none text-white uppercase italic">{appState.message}</p>
             </div>
             
-            {/* UPDATED: WHITE REPLY BAR */}
             <div className="relative w-full mb-4 px-4">
               <input 
                 type="text" 
@@ -136,15 +135,23 @@ export default function Home() {
                 onChange={(e) => setReplyMsg(e.target.value)}
                 className="w-full bg-transparent border-b border-white/40 px-2 py-3 text-center focus:outline-none focus:border-white transition-all text-lg font-black tracking-[0.1em] uppercase italic placeholder:text-zinc-800"
               />
-              {replyMsg && (
-                <button onClick={() => handleResponse('text')} className="absolute right-6 bottom-3 text-white font-black text-[10px] tracking-widest animate-pulse">SEND</button>
-              )}
             </div>
 
-            {/* UPDATED: SMALLER BUTTONS */}
+            {/* DYNAMIC BUTTONS: Swaps text based on input */}
             <div className="grid grid-cols-2 gap-4 px-8">
-              <button onClick={() => handleResponse('yes')} className="bg-transparent border border-green-500 text-green-500 py-4 rounded-3xl text-lg font-black active:scale-95 transition-all">YES</button>
-              <button onClick={() => handleResponse('no')} className="bg-transparent border border-red-500 text-red-500 py-4 rounded-3xl text-lg font-black active:scale-95 transition-all">NO</button>
+              <button 
+                onClick={() => replyMsg ? handleResponse('text') : handleResponse('yes')} 
+                className={`bg-transparent border py-4 rounded-3xl text-lg font-black active:scale-95 transition-all ${replyMsg ? 'border-blue-500 text-blue-500' : 'border-green-500 text-green-500'}`}
+              >
+                {replyMsg ? 'SEND' : 'YES'}
+              </button>
+              
+              <button 
+                onClick={() => replyMsg ? setReplyMsg('') : handleResponse('no')} 
+                className={`bg-transparent border py-4 rounded-3xl text-lg font-black active:scale-95 transition-all ${replyMsg ? 'border-zinc-500 text-zinc-500' : 'border-red-500 text-red-500'}`}
+              >
+                {replyMsg ? 'CANCEL' : 'NO'}
+              </button>
             </div>
           </div>
         ) : (
@@ -175,7 +182,6 @@ export default function Home() {
         )}
       </div>
 
-      {/* QUIET STREAK */}
       <div className="w-full max-w-sm flex items-center justify-between px-6 mb-4 opacity-60">
         <div className="flex flex-col items-start text-left">
           <span className="text-[8px] text-zinc-500 uppercase tracking-[0.3em] font-black leading-none mb-1 italic">Quiet Streak</span>
@@ -184,7 +190,6 @@ export default function Home() {
         <span className="text-2xl drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">{streak.emoji}</span>
       </div>
 
-      {/* HISTORY BOX */}
       <div className="w-full max-w-sm bg-zinc-900/40 rounded-3xl p-6 border border-white/5 backdrop-blur-md mb-6 text-left">
         <h2 className="text-[10px] uppercase tracking-[0.3em] text-gray-600 mb-4 font-black ml-2 italic">History</h2>
         <div className="space-y-4">
