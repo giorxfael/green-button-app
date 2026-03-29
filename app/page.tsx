@@ -151,8 +151,8 @@ export default function Home() {
   if (!mounted) return <div className="min-h-screen bg-black" />;
   if (!myId) return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-black gap-6 p-6">
-       <button onClick={() => register('iPhone1')} className="w-full max-w-xs bg-zinc-900 py-6 rounded-3xl font-bold text-xl text-white">iPhone 1</button>
-       <button onClick={() => register('iPhone2')} className="w-full max-w-xs bg-zinc-900 py-6 rounded-3xl font-bold text-xl text-white">iPhone 2</button>
+       <button onClick={() => register('iPhone1')} className="w-full max-w-xs border-2 border-white/10 py-6 rounded-3xl font-black italic text-xl text-white uppercase tracking-tighter">iPhone 1</button>
+       <button onClick={() => register('iPhone2')} className="w-full max-w-xs border-2 border-white/10 py-6 rounded-3xl font-black italic text-xl text-white uppercase tracking-tighter">iPhone 2</button>
     </div>
   );
 
@@ -160,43 +160,34 @@ export default function Home() {
   const amIWaiting = appState?.status === 'pending' && appState?.sender === myId;
 
   return (
-    <div className="flex flex-col h-screen bg-black text-white overflow-hidden relative font-[-apple-system,BlinkMacSystemFont,sans-serif]">
+    <div className="flex flex-col h-screen bg-black text-white text-center overflow-hidden relative">
       
-      {/* HEADER */}
-      <div className="absolute top-0 w-full z-50 px-5 pt-16 pb-3 flex items-center justify-between bg-black/80 backdrop-blur-xl border-b border-white/5">
-        <button onClick={() => setIsChatOpen(!isChatOpen)} className="text-[#007AFF] text-[17px] font-normal flex items-center active:opacity-40 transition-opacity">
-          {isChatOpen ? <><span className="text-2xl mr-1">‹</span><span>Back</span></> : <span className="text-2xl">💬</span>}
-        </button>
-        <div className="flex flex-col items-center absolute left-1/2 -translate-x-1/2">
-            <div className="w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center mb-0.5">
-                <span className="text-[10px] text-zinc-500">👤</span>
-            </div>
-            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{isChatOpen ? "MESSAGES" : "DASHBOARD"}</span>
-        </div>
-        <div className="w-10" />
+      {/* HEADER (RE-FIXED) */}
+      <div className="absolute top-0 w-full z-50 px-6 pt-14 pb-4 flex items-center justify-start">
+          <button onClick={() => setIsChatOpen(!isChatOpen)} className="opacity-40 hover:opacity-100 transition-all active:scale-90 flex items-center">
+            {isChatOpen ? (
+              <span className="text-blue-500 font-black italic text-[10px] tracking-widest uppercase">〈 Back</span>
+            ) : (
+              <span className="text-2xl">💬</span>
+            )}
+          </button>
       </div>
 
       {isChatOpen ? (
-        /* CHAT VIEW */
-        <div className="flex flex-col h-full pt-[110px] animate-in fade-in slide-in-from-bottom-2 duration-300">
-          <div className="flex-grow overflow-y-auto px-3 space-y-1.5 pb-24 scrollbar-hide flex flex-col">
-             <p className="text-[11px] text-zinc-500 font-semibold py-4 text-center">Yesterday 2:45 AM</p>
+        /* IPHONE MESSAGES VIEW */
+        <div className="flex flex-col h-full pt-28 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className="flex-grow overflow-y-auto px-4 space-y-2 pb-24 scrollbar-hide flex flex-col">
+             <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest py-4 text-center">Messages expire in 24h</p>
             {messages.filter(msg => msg.text?.trim()).map((msg, idx) => {
               const isMine = msg.senderId === myId;
               const isLast = idx === messages.length - 1;
               return (
                 <div key={msg.id} className="flex flex-col w-full">
                   <div className={`flex w-full ${isMine ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[75%] px-4 py-2 rounded-[18px] text-[16px] leading-[1.3] ${
-                        isMine 
-                        ? 'bg-gradient-to-b from-[#0084ff] to-[#0078ff] text-white rounded-tr-[4px]' 
-                        : 'bg-[#262629] text-white rounded-tl-[4px]'
-                    }`}>
-                        {msg.text}
-                    </div>
+                    <div className={`max-w-[70%] px-4 py-2 rounded-[20px] text-[15px] leading-tight font-medium ${isMine ? 'bg-blue-600 text-white rounded-br-none' : 'bg-[#262629] text-white rounded-bl-none'}`}>{msg.text}</div>
                   </div>
                   {isMine && isLast && (
-                    <span className="text-[11px] text-zinc-500 font-normal mt-1 mr-1 text-right">
+                    <span className="text-[10px] text-zinc-500 font-bold mt-1 pr-1 text-right animate-in fade-in duration-300">
                       {msg.seen ? 'Read' : 'Delivered'}
                     </span>
                   )}
@@ -205,86 +196,74 @@ export default function Home() {
             })}
             <div ref={scrollRef} />
           </div>
-          
-          <div className="absolute bottom-0 w-full bg-black/90 backdrop-blur-2xl px-3 py-3 pb-10">
-            <div className="relative flex items-center bg-[#1c1c1e] rounded-[22px] px-4 py-1.5 border border-white/5">
-              <input 
-                type="text" placeholder="iMessage" value={chatInput} 
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && sendChatMessage()}
-                className="flex-grow bg-transparent py-2 text-[16px] focus:outline-none placeholder:text-[#636366]"
+          <div className="absolute bottom-0 w-full bg-[#121212]/90 backdrop-blur-2xl border-t border-white/10 px-4 py-3 pb-10">
+            <div className="relative flex items-center bg-[#1c1c1e] rounded-full border border-white/10 pr-2">
+              <input type="text" placeholder="iMessage" value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && sendChatMessage()}
+                className="w-full bg-transparent py-3 px-4 text-sm focus:outline-none placeholder:text-zinc-600"
               />
-              <button 
-                onClick={sendChatMessage} 
-                disabled={!chatInput.trim()}
-                className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${
-                    chatInput.trim() ? 'bg-[#007AFF] scale-100' : 'bg-zinc-700 opacity-20 scale-90'
-                }`}
-              >
-                <span className="text-white font-bold text-lg">↑</span>
-              </button>
+              <button onClick={sendChatMessage} disabled={!chatInput.trim()} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${chatInput.trim() ? 'bg-blue-600' : 'bg-zinc-700 opacity-30'}`}><span className="text-white text-lg font-bold">↑</span></button>
             </div>
           </div>
         </div>
       ) : (
-        /* PING VIEW */
-        <div className="flex flex-col h-full pt-32 px-6">
-          <div className="flex-grow flex flex-col items-center justify-center space-y-12">
+        /* RESTORED PING VIEW */
+        <div className="flex flex-col h-full pt-28">
+          <div className="relative flex-grow flex items-center justify-center w-full">
             {isIBeingPinged ? (
-              <div className="w-full space-y-8 animate-in fade-in zoom-in duration-500">
-                <h1 className="text-4xl font-black tracking-tighter italic uppercase text-center">{appState.message}</h1>
-                <input 
-                  type="text" placeholder="Reply..." value={replyMsg} onChange={(e) => setReplyMsg(e.target.value)}
-                  className="w-full bg-zinc-900 rounded-2xl py-4 px-6 text-center focus:outline-none focus:ring-1 ring-white/20 text-xl font-bold italic"
-                />
-                <div className="grid grid-cols-2 gap-4">
-                  <button onClick={() => replyMsg ? handleResponse('text') : handleResponse('yes')} className="bg-[#34C759] py-5 rounded-2xl text-xl font-black uppercase italic">Yes</button>
-                  <button onClick={() => replyMsg ? setReplyMsg('') : handleResponse('no')} className="bg-[#FF3B30] py-5 rounded-2xl text-xl font-black uppercase italic">No</button>
+              <div className="w-full max-w-xs z-10 space-y-8 animate-in fade-in zoom-in duration-500">
+                <div className="flex flex-col items-center justify-center min-h-[160px] px-4"><p className="text-3xl font-black tracking-tighter leading-none text-white uppercase italic">{appState.message}</p></div>
+                <div className="relative w-full mb-4 px-4">
+                  <input type="text" placeholder="REPLY..." value={replyMsg} onChange={(e) => setReplyMsg(e.target.value)}
+                    className="w-full bg-transparent border-b border-white/40 px-2 py-3 text-center focus:outline-none focus:border-white transition-all text-lg font-black tracking-[0.1em] uppercase italic placeholder:text-zinc-800"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4 px-8">
+                  <button onClick={() => replyMsg ? handleResponse('text') : handleResponse('yes')} className={`bg-transparent border py-4 rounded-3xl text-lg font-black active:scale-95 transition-all ${replyMsg ? 'border-blue-500 text-blue-500' : 'border-green-500 text-green-500'}`}>{replyMsg ? 'SEND' : 'YES'}</button>
+                  <button onClick={() => replyMsg ? setReplyMsg('') : handleResponse('no')} className={`bg-transparent border py-4 rounded-3xl text-lg font-black active:scale-95 transition-all ${replyMsg ? 'border-zinc-500 text-zinc-500' : 'border-red-500 text-red-500'}`}>{replyMsg ? 'CANCEL' : 'NO'}</button>
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col items-center space-y-12">
-                <div className="relative w-full">
-                  <input 
-                    disabled={amIWaiting} type="text" placeholder="SEND MESSAGE..." value={customMsg} onChange={(e) => setCustomMsg(e.target.value)}
-                    className="bg-transparent text-center text-2xl font-black italic uppercase tracking-widest placeholder:text-zinc-800 focus:outline-none"
+              <div className="flex flex-col items-center justify-center">
+                <div className="relative mb-10 w-72">
+                  <input disabled={amIWaiting} type="text" placeholder="MESSAGE..." value={customMsg} onChange={(e) => setCustomMsg(e.target.value)}
+                    className="w-full bg-transparent border-b border-white/20 px-2 py-4 text-center focus:outline-none focus:border-green-500 transition-all text-xl font-black tracking-[0.2em] placeholder:text-zinc-800 placeholder:font-black uppercase italic"
                   />
+                  <div className="absolute bottom-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
                 </div>
-                <button 
-                  disabled={amIWaiting} onClick={sendPing} 
-                  className={`w-64 h-64 rounded-full text-5xl font-black italic transition-all active:scale-90 ${
-                    amIWaiting ? 'bg-zinc-900 text-zinc-700' : 'bg-[#34C759] shadow-[0_0_80px_rgba(52,199,89,0.3)]'
-                  }`}
-                >
-                  {amIWaiting ? '...' : 'PUSH'}
-                </button>
-                <p className="text-yellow-400 font-black italic tracking-widest h-8">{status}</p>
+                <div className="w-64 h-64 flex items-center justify-center">
+                  <button disabled={amIWaiting} onClick={sendPing} 
+                    className={`w-full h-full rounded-full text-4xl font-black uppercase tracking-tighter transition-all ${amIWaiting ? 'bg-zinc-900 text-zinc-700' : 'bg-green-600 shadow-[0_0_60px_rgba(34,197,94,0.5)] active:scale-90'}`}
+                  >{amIWaiting ? '...' : (customMsg ? 'SEND' : 'PUSH')}</button>
+                </div>
+                <div className="h-32 flex flex-col items-center justify-center mt-6">
+                  <p className="font-black text-2xl uppercase italic tracking-tighter text-yellow-400">{status}</p>
+                </div>
               </div>
             )}
           </div>
 
           {/* QUIET STREAK */}
-          <div className="flex items-center justify-between bg-zinc-900/50 p-5 rounded-3xl mb-4">
-            <div className="text-left">
-              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Quiet Streak</p>
-              <p className="text-lg font-mono font-bold text-zinc-300">{streak.time}</p>
+          <div className="w-full max-w-sm mx-auto flex items-center justify-between px-6 mb-4 opacity-60">
+            <div className="flex flex-col items-start text-left">
+              <span className="text-[8px] text-zinc-500 uppercase tracking-[0.3em] font-black leading-none mb-1 italic">Quiet Streak</span>
+              <span className="text-sm font-mono text-zinc-300 tabular-nums font-bold">{streak.time}</span>
             </div>
-            <span className="text-3xl">{streak.emoji}</span>
+            <span className="text-2xl drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">{streak.emoji}</span>
           </div>
 
           {/* HISTORY */}
-          <div className="bg-zinc-900/50 rounded-3xl p-6 mb-10 text-left">
-            <h2 className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-4">Activity</h2>
+          <div className="w-full max-w-sm mx-auto bg-zinc-900/40 rounded-3xl p-6 border border-white/5 backdrop-blur-md mb-10 text-left">
+            <h2 className="text-[10px] uppercase tracking-[0.3em] text-gray-600 mb-4 font-black ml-2 italic">Activity</h2>
             <div className="space-y-4">
               {history.map((item) => (
-                <div key={item.id} className="flex justify-between items-center text-xs border-b border-white/5 pb-2">
-                  <div>
-                    <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest mb-0.5">{item.status === 'replied' ? 'CONVO' : 'PING'}</p>
-                    <p className="text-zinc-400 font-mono">{item.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                <div key={item.id} className="flex justify-between items-start text-xs border-b border-white/5 pb-2">
+                  <div className="flex flex-col">
+                    <span className={`text-[8px] font-black uppercase ${item.status !== 'pending' ? 'text-blue-500' : 'text-zinc-800'}`}>{item.status !== 'pending' ? "PICKED" : "SENT"}</span>
+                    <span className="text-gray-400 font-mono">{item.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
-                  <div className="text-right">
-                    <p className="text-zinc-400 italic mb-1">"{item.message}"</p>
-                    <p className={`font-black uppercase text-[10px] ${item.status === 'yes' ? 'text-green-500' : item.status === 'no' ? 'text-red-500' : 'text-blue-400'}`}>{item.status}</p>
+                  <div className="flex flex-col items-end gap-1 max-w-[180px]">
+                    <span className="text-xs text-zinc-600 italic truncate w-full text-right">"{item.message}"</span>
+                    <span className={`font-black uppercase text-[10px] italic ${item.status === 'yes' ? 'text-green-500' : item.status === 'no' ? 'text-red-500' : 'text-blue-400'}`}>{item.status === 'replied' ? "REPLIED" : item.status.toUpperCase()}</span>
                   </div>
                 </div>
               ))}
