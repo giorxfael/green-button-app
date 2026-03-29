@@ -101,7 +101,7 @@ export default function Home() {
     const messaging = await getMessagingInstance();
     if (!messaging) return;
     const token = await getToken(messaging, { vapidKey: process.env.NEXT_PUBLIC_VAPID_KEY });
-    await setDoc(doc(db, "tokens", id), { token });
+    await setDoc(doc(db, "tokens", id), { token: token });
     localStorage.setItem('isRegistered', 'true');
     setIsRegistered(true);
   };
@@ -182,30 +182,33 @@ export default function Home() {
         <span className="text-2xl drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">{streak.emoji}</span>
       </div>
 
-      {/* HISTORY BOX - REVERTED TO STABLE */}
+      {/* HISTORY BOX - UPDATED FEATURE */}
       <div className="w-full max-w-sm bg-zinc-900/40 rounded-3xl p-6 border border-white/5 backdrop-blur-md mb-6 text-left">
         <h2 className="text-[10px] uppercase tracking-[0.3em] text-gray-600 mb-4 font-black ml-2 italic">History</h2>
         <div className="space-y-4">
-          {history.map((item) => (
-            <div key={item.id} className="flex justify-between items-center text-xs border-b border-white/5 pb-2">
-              <div className="flex flex-col">
-                <span className={`text-[8px] font-black uppercase ${item.status !== 'pending' ? 'text-blue-500' : 'text-zinc-800'}`}>
-                  {item.status !== 'pending' ? "PICKED" : "SENT"}
-                </span>
-                <span className="text-gray-400 font-mono">
-                  {item.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
+          {history.map((item) => {
+            const isReply = item.status === 'replied';
+            return (
+              <div key={item.id} className="flex justify-between items-start text-xs border-b border-white/5 pb-2">
+                <div className="flex flex-col">
+                  <span className={`text-[8px] font-black uppercase tracking-widest ${item.status !== 'pending' ? 'text-blue-500' : 'text-zinc-800'}`}>
+                    {isReply ? "CONVO" : (item.status !== 'pending' ? "PICKED" : "SENT")}
+                  </span>
+                  <span className="text-gray-400 font-mono">{item.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                </div>
+                
+                {/* Unified Threaded Display */}
+                <div className="flex flex-col items-end gap-1 max-w-[180px]">
+                  <span className="text-xs text-zinc-600 italic truncate w-full text-right">
+                    "{item.message}"
+                  </span>
+                  <span className={`font-black uppercase text-[10px] italic ${item.status === 'yes' ? 'text-green-500' : item.status === 'no' ? 'text-red-500' : 'text-blue-400'}`}>
+                    {item.status === 'yes' ? "YES" : item.status === 'no' ? "NO" : item.status === 'replied' ? "REPLIED" : "..."}
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-zinc-600 italic max-w-[80px] truncate">
-                  {item.message}
-                </span>
-                <span className={`font-black uppercase text-sm italic ${item.status === 'yes' ? 'text-green-500' : item.status === 'no' ? 'text-red-500' : 'text-blue-400'}`}>
-                  {item.status === 'yes' ? "YES" : item.status === 'no' ? "NO" : item.status === 'replied' ? "TXT" : "..."}
-                </span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
