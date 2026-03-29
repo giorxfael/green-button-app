@@ -6,13 +6,13 @@ import { getToken } from 'firebase/messaging';
 
 export default function Home() {
   const [myId, setMyId] = useState<'iPhone1' | 'iPhone2' | null>(null);
-  const [appState, setAppState] = useState<any>(null); 
+  const [appState, setAppState] = useState<any>(null);
   const [status, setStatus] = useState('');
-  const [customMsg, setCustomMsg] = useState(''); 
+  const [customMsg, setCustomMsg] = useState('');
   const [responseTime, setResponseTime] = useState<string | null>(null);
-  const [mounted, setMounted] = useState(false);
   const [history, setHistory] = useState<any[]>([]);
   const [isRegistered, setIsRegistered] = useState(false);
+  const [mounted, setMounted] = useState(false);
   
   const sessionStart = useRef(new Date().getTime());
 
@@ -23,6 +23,7 @@ export default function Home() {
     setIsRegistered(localStorage.getItem('isRegistered') === 'true');
   }, []);
 
+  // 1. SHARED STREAK LOGIC
   const getQuietStreak = () => {
     if (history.length === 0) return { time: "0h 0m", emoji: "🆕" };
     const lastPing = history.find(item => item.timestamp)?.timestamp?.toDate();
@@ -39,6 +40,7 @@ export default function Home() {
 
   const streak = getQuietStreak();
 
+  // 2. SYNC GLOBAL STATE
   useEffect(() => {
     if (!mounted || !myId) return;
     const unsubscribe = onSnapshot(doc(db, "notifications", "current"), (docSnap) => {
@@ -60,6 +62,7 @@ export default function Home() {
     return () => unsubscribe();
   }, [mounted, myId]);
 
+  // 3. SYNC HISTORY
   useEffect(() => {
     if (!mounted) return;
     const q = query(collection(db, "history"), orderBy("timestamp", "desc"), limit(5));
@@ -105,11 +108,12 @@ export default function Home() {
 
   if (!mounted) return <div className="min-h-screen bg-black" />;
 
+  // SELECTION SCREEN
   if (!myId) return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-black gap-6 p-6">
-       <span className="text-zinc-600 text-[10px] uppercase tracking-[0.5em] font-black italic">Setup Identity</span>
-       <button onClick={() => register('iPhone1')} className="w-full max-w-xs border-2 border-white/10 py-6 rounded-3xl font-black italic text-xl text-white active:scale-95 transition-all">IPHONE 1</button>
-       <button onClick={() => register('iPhone2')} className="w-full max-w-xs border-2 border-white/10 py-6 rounded-3xl font-black italic text-xl text-white active:scale-95 transition-all">IPHONE 2</button>
+       <span className="text-zinc-600 text-[10px] uppercase tracking-[0.5em] font-black italic">Identity</span>
+       <button onClick={() => register('iPhone1')} className="w-full max-w-xs border-2 border-white/10 py-6 rounded-3xl font-black italic text-xl text-white">IPHONE 1</button>
+       <button onClick={() => register('iPhone2')} className="w-full max-w-xs border-2 border-white/10 py-6 rounded-3xl font-black italic text-xl text-white">IPHONE 2</button>
     </div>
   );
 
@@ -118,6 +122,8 @@ export default function Home() {
 
   return (
     <div className="flex flex-col items-center min-h-screen bg-black text-white p-6 text-center overflow-x-hidden relative">
+      
+      {/* 1. TOP INTERACTION ZONE (UNIFIED) */}
       <div className="relative flex-grow flex items-center justify-center w-full">
         {isIBeingPinged ? (
           <div className="w-full max-w-xs z-10 space-y-8 animate-in fade-in zoom-in duration-500">
@@ -126,7 +132,7 @@ export default function Home() {
                 <div className="text-9xl animate-bounce drop-shadow-[0_0_35px_rgba(255,255,255,0.3)]">{appState.message}</div>
               ) : (
                 <div className="animate-in fade-in zoom-in duration-500">
-                  <span className="text-zinc-500 text-[10px] uppercase tracking-[0.4em] font-black mb-2 block tracking-[0.3em]">Incoming</span>
+                  <span className="text-zinc-500 text-[10px] uppercase tracking-[0.4em] font-black mb-2 block italic tracking-[0.3em]">Incoming</span>
                   <p className="text-3xl font-black tracking-tighter leading-none text-white uppercase italic">{appState.message}</p>
                 </div>
               )}
@@ -163,6 +169,7 @@ export default function Home() {
         )}
       </div>
 
+      {/* 2. SHARED STATS & HISTORY (UNIFIED) */}
       <div className="w-full max-w-sm flex items-center justify-between px-6 mb-4 opacity-60">
         <div className="flex flex-col items-start text-left">
           <span className="text-[8px] text-zinc-500 uppercase tracking-[0.3em] font-black leading-none mb-1 italic">Quiet Streak</span>
