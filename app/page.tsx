@@ -199,16 +199,18 @@ export default function Home() {
                   </span>
                 </div>
                 
-                <div className="flex flex-col items-end gap-1 max-w-[180px]">
-                  {/* The Original Message/Ping always shows here */}
-                  <span className="text-[10px] text-zinc-600 italic truncate w-full text-right opacity-50">
-                    Previous: "{item.message}"
+                <div className="flex flex-col items-end gap-1 max-w-[180px] text-right">
+                  {/* SENDER MESSAGE */}
+                  <span className="text-xs text-zinc-500 italic font-medium">
+                    {item.message}
                   </span>
                   
-                  {/* This now shows the actual Reply Text if status is 'replied' */}
-                  <span className={`font-black uppercase text-sm italic text-right leading-tight ${item.status === 'yes' ? 'text-green-500' : item.status === 'no' ? 'text-red-500' : 'text-blue-400'}`}>
-                    {isReply ? item.message : (item.status === 'yes' ? "YES" : item.status === 'no' ? "NO" : "...")}
-                  </span>
+                  {/* RECEIVER REPLY (Only shows if they picked Yes/No or typed a reply) */}
+                  {item.status !== 'pending' && (
+                    <span className={`font-black uppercase text-sm italic leading-tight ${item.status === 'yes' ? 'text-green-500' : item.status === 'no' ? 'text-red-500' : 'text-blue-400'}`}>
+                      {isReply ? item.replyText || item.message : item.status}
+                    </span>
+                  )}
                 </div>
               </div>
             );
