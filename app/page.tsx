@@ -174,9 +174,8 @@ export default function Home() {
   return (
     <div className="flex flex-col h-screen bg-black text-white text-center overflow-hidden relative">
       
-      {/* FIXED HEADER */}
-      <div className="absolute top-0 w-full z-50 px-6 pt-14 pb-4 flex items-center justify-between bg-gradient-to-b from-black via-black/80 to-transparent">
-        <div className="w-16 text-left">
+      {/* MINIMAL HEADER (STATUS REMOVED) */}
+      <div className="absolute top-0 w-full z-50 px-6 pt-14 pb-4 flex items-center justify-start bg-gradient-to-b from-black via-black/80 to-transparent">
           <button onClick={() => setIsChatOpen(!isChatOpen)} className="opacity-60 hover:opacity-100 transition-all active:scale-90">
             {isChatOpen ? (
               <span className="text-blue-500 font-black italic text-[10px] tracking-widest uppercase">〈 Back</span>
@@ -184,16 +183,6 @@ export default function Home() {
               <span className="text-2xl">💬</span>
             )}
           </button>
-        </div>
-
-        <div className="flex flex-col items-center">
-            <div className={`w-2 h-2 rounded-full mb-1 ${amIWaiting ? 'bg-yellow-500 animate-pulse' : 'bg-zinc-800'}`} />
-            <span className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.3em] italic">
-              {isChatOpen ? "Messages" : "Status"}
-            </span>
-        </div>
-
-        <div className="w-16" /> {/* Spacer for centering */}
       </div>
 
       {isChatOpen ? (
