@@ -13,6 +13,8 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
+// app/api/respond/route.ts
+
 export async function POST(request: Request) {
   try {
     const { answer, textResponse } = await request.json();
@@ -23,7 +25,9 @@ export async function POST(request: Request) {
     if (data?.historyId) {
       const updateData = {
         status: textResponse ? "replied" : answer,
-        message: textResponse || data.message, 
+        // CRITICAL: Save the text response to a NEW field called replyText
+        // Do NOT update the 'message' field here
+        replyText: textResponse || null, 
         respondedAt: admin.firestore.FieldValue.serverTimestamp(),
       };
 

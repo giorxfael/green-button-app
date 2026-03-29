@@ -200,15 +200,16 @@ export default function Home() {
                 </div>
                 
                 <div className="flex flex-col items-end gap-1 max-w-[180px] text-right">
-                  {/* SENDER MESSAGE */}
-                  <span className="text-xs text-zinc-500 italic font-medium">
+                  {/* ORIGINAL SENDER MESSAGE */}
+                  <span className="text-xs text-zinc-500 italic">
                     {item.message}
                   </span>
                   
-                  {/* RECEIVER REPLY (Only shows if they picked Yes/No or typed a reply) */}
+                  {/* RECEIVER REPLY */}
                   {item.status !== 'pending' && (
                     <span className={`font-black uppercase text-sm italic leading-tight ${item.status === 'yes' ? 'text-green-500' : item.status === 'no' ? 'text-red-500' : 'text-blue-400'}`}>
-                      {isReply ? item.replyText || item.message : item.status}
+                      {/* Use replyText if it's a text reply, otherwise use the status (YES/NO) */}
+                      {isReply ? item.replyText : item.status}
                     </span>
                   )}
                 </div>
