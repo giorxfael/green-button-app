@@ -24,6 +24,7 @@ export default function Home() {
   const [history, setHistory] = useState<any[]>([]);
   const [mounted, setMounted] = useState(false);
 
+  // CHAT STATES
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [messages, setMessages] = useState<any[]>([]);
   const [chatInput, setChatInput] = useState('');
@@ -37,6 +38,7 @@ export default function Home() {
     if (savedId) setMyId(savedId);
   }, []);
 
+  // 1. PING LISTENER
   useEffect(() => {
     if (!mounted || !myId) return;
     const unsubscribe = onSnapshot(doc(db, "notifications", "current"), (docSnap) => {
@@ -53,23 +55,24 @@ export default function Home() {
     return () => unsubscribe();
   }, [mounted, myId]);
 
+  // 2. CHAT LISTENER (Desc order for Keyboard Fix)
   useEffect(() => {
     if (!mounted || !isChatOpen) return;
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const q = query(
       collection(db, "messages"),
       where("timestamp", ">=", Timestamp.fromDate(twentyFourHoursAgo)),
-      orderBy("timestamp", "asc")
+      orderBy("timestamp", "desc")
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setMessages(msgs);
-      setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     });
     return () => unsubscribe();
   }, [mounted, isChatOpen]);
 
+  // 3. SEEN LOGIC
   useEffect(() => {
     if (!mounted || !isChatOpen || !messages.length || !myId) return;
     const unseenMessages = messages.filter(msg => msg.senderId !== myId && !msg.seen);
@@ -79,6 +82,7 @@ export default function Home() {
     });
   }, [isChatOpen, messages, myId, mounted]);
 
+  // 4. HISTORY LISTENER
   useEffect(() => {
     if (!mounted) return;
     const q = query(collection(db, "history"), orderBy("timestamp", "desc"), limit(5));
@@ -155,8 +159,14 @@ export default function Home() {
   const amIWaiting = appState?.status === 'pending' && appState?.sender === myId;
 
   return (
-    <div className={`flex flex-col bg-black text-white text-center relative ${isChatOpen ? 'h-screen overflow-hidden' : 'min-h-screen overflow-y-auto'}`}>
+    <div className="flex flex-col bg-black text-white relative min-h-screen">
       
+      {/* CSS: HIDE SCROLLBAR GANG */}
+      <style jsx global>{`
+        ::-webkit-scrollbar { display: none !important; }
+        * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
+      `}</style>
+
       {/* HEADER */}
       <div className="sticky top-0 w-full z-50 px-6 pt-14 pb-4 flex items-center justify-start bg-black/80 backdrop-blur-md">
           <button onClick={() => setIsChatOpen(!isChatOpen)} className="opacity-40 hover:opacity-100 transition-all active:scale-90 flex items-center">
@@ -169,19 +179,19 @@ export default function Home() {
       </div>
 
       {isChatOpen ? (
-        /* CHAT VIEW (STAYS LOCKED) */
-        <div className="flex flex-col h-full animate-in fade-in slide-in-from-bottom-2 duration-300">
-          <div className="flex-grow overflow-y-auto px-4 space-y-2 pb-24 scrollbar-hide flex flex-col">
-             <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest py-4 text-center">Messages expire in 24h</p>
+        /* CHAT VIEW: Keyboard Fix with Reverse Flex */
+        <div className="fixed inset-0 pt-28 flex flex-col bg-black z-40 animate-in fade-in duration-300">
+          <div className="flex-grow overflow-y-auto px-4 space-y-2 pb-24 flex flex-col-reverse">
+            <div ref={scrollRef} />
             {messages.filter(msg => msg.text?.trim()).map((msg, idx) => {
               const isMine = msg.senderId === myId;
-              const isLast = idx === messages.length - 1;
+              const isLatest = idx === 0;
               return (
-                <div key={msg.id} className="flex flex-col w-full">
+                <div key={msg.id} className="flex flex-col w-full py-0.5">
                   <div className={`flex w-full ${isMine ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[70%] px-4 py-2 rounded-[20px] text-[15px] leading-tight font-medium ${isMine ? 'bg-blue-600 text-white rounded-br-none' : 'bg-[#262629] text-white rounded-bl-none'}`}>{msg.text}</div>
+                    <div className={`max-w-[75%] px-4 py-2 rounded-[20px] text-[15px] leading-tight font-medium ${isMine ? 'bg-gradient-to-b from-[#0084ff] to-[#0078ff] text-white rounded-br-none' : 'bg-[#262629] text-white rounded-bl-none'}`}>{msg.text}</div>
                   </div>
-                  {isMine && isLast && (
+                  {isMine && isLatest && (
                     <span className="text-[10px] text-zinc-500 font-bold mt-1 pr-1 text-right animate-in fade-in duration-300">
                       {msg.seen ? 'Read' : 'Delivered'}
                     </span>
@@ -189,11 +199,11 @@ export default function Home() {
                 </div>
               );
             })}
-            <div ref={scrollRef} />
+             <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest py-4 text-center">Messages expire in 24h</p>
           </div>
-          <div className="absolute bottom-0 w-full bg-[#121212]/90 backdrop-blur-2xl border-t border-white/10 px-4 py-3 pb-10">
+          <div className="w-full bg-[#121212]/90 backdrop-blur-2xl border-t border-white/10 px-4 py-3 pb-10">
             <div className="relative flex items-center bg-[#1c1c1e] rounded-full border border-white/10 pr-2">
-              <input type="text" placeholder="iMessage" value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && sendChatMessage()}
+              <input type="text" placeholder="iMessage" autoFocus value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && sendChatMessage()}
                 className="w-full bg-transparent py-3 px-4 text-sm focus:outline-none placeholder:text-zinc-600"
               />
               <button onClick={sendChatMessage} disabled={!chatInput.trim()} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${chatInput.trim() ? 'bg-blue-600' : 'bg-zinc-700 opacity-30'}`}><span className="text-white text-lg font-bold">↑</span></button>
@@ -201,18 +211,18 @@ export default function Home() {
           </div>
         </div>
       ) : (
-        /* RESTORED SCROLLABLE PING VIEW */
-        <div className="flex flex-col px-6 pb-20">
+        /* PING VIEW: FULLY RESTORED SCROLLING */
+        <div className="flex flex-col px-6 pb-20 w-full">
           <div className="flex flex-col items-center justify-center py-20 min-h-[70vh]">
             {isIBeingPinged ? (
               <div className="w-full max-w-xs space-y-8 animate-in fade-in zoom-in duration-500">
-                <p className="text-3xl font-black tracking-tighter italic uppercase">{appState.message}</p>
+                <p className="text-3xl font-black tracking-tighter italic uppercase text-center">{appState.message}</p>
                 <input type="text" placeholder="REPLY..." value={replyMsg} onChange={(e) => setReplyMsg(e.target.value)}
                   className="w-full bg-transparent border-b border-white/40 px-2 py-3 text-center focus:outline-none text-lg font-black uppercase italic"
                 />
                 <div className="grid grid-cols-2 gap-4">
-                  <button onClick={() => replyMsg ? handleResponse('text') : handleResponse('yes')} className="border border-green-500 text-green-500 py-4 rounded-3xl font-black uppercase">Yes</button>
-                  <button onClick={() => replyMsg ? setReplyMsg('') : handleResponse('no')} className="border border-red-500 text-red-500 py-4 rounded-3xl font-black uppercase">No</button>
+                  <button onClick={() => replyMsg ? handleResponse('text') : handleResponse('yes')} className="bg-[#34C759] py-5 rounded-2xl text-xl font-black uppercase italic text-black">Yes</button>
+                  <button onClick={() => replyMsg ? setReplyMsg('') : handleResponse('no')} className="bg-[#FF3B30] py-5 rounded-2xl text-xl font-black uppercase italic text-black">No</button>
                 </div>
               </div>
             ) : (
@@ -221,34 +231,33 @@ export default function Home() {
                   className="w-full bg-transparent border-b border-white/20 py-4 text-center focus:outline-none focus:border-green-500 text-xl font-black uppercase italic placeholder:text-zinc-800"
                 />
                 <button disabled={amIWaiting} onClick={sendPing} 
-                  className={`w-64 h-64 rounded-full text-4xl font-black uppercase italic transition-all active:scale-90 ${amIWaiting ? 'bg-zinc-900 text-zinc-700' : 'bg-green-600 shadow-[0_0_60px_rgba(34,197,94,0.3)]'}`}
+                  className={`w-64 h-64 rounded-full text-5xl font-black italic transition-all active:scale-90 ${amIWaiting ? 'bg-zinc-900 text-zinc-700' : 'bg-[#34C759] shadow-[0_0_80px_rgba(52,199,89,0.3)]'}`}
                 >{amIWaiting ? '...' : 'PUSH'}</button>
                 <p className="font-black text-2xl uppercase italic text-yellow-400 h-8">{status}</p>
               </div>
             )}
           </div>
 
-          {/* STREAK & HISTORY (SCROLLABLE) */}
-          <div className="w-full max-w-sm mx-auto flex items-center justify-between px-6 mb-8 opacity-60">
-            <div className="flex flex-col items-start text-left">
-              <span className="text-[8px] text-zinc-500 uppercase font-black italic">Quiet Streak</span>
-              <span className="text-sm font-mono text-zinc-300 font-bold">{streak.time}</span>
+          <div className="flex items-center justify-between bg-zinc-900/50 p-5 rounded-3xl mb-4 w-full max-w-sm mx-auto">
+            <div className="text-left">
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1 italic">Quiet Streak</p>
+              <p className="text-lg font-mono font-bold text-zinc-300 tabular-nums">{streak.time}</p>
             </div>
             <span className="text-2xl">{streak.emoji}</span>
           </div>
 
-          <div className="w-full max-w-sm mx-auto bg-zinc-900/40 rounded-3xl p-6 border border-white/5 mb-10 text-left">
-            <h2 className="text-[10px] uppercase text-gray-600 mb-4 font-black italic">Activity</h2>
+          <div className="w-full max-w-sm mx-auto bg-zinc-900/50 rounded-3xl p-6 mb-10 text-left border border-white/5">
+            <h2 className="text-[10px] uppercase text-gray-600 mb-4 font-black italic tracking-widest">Activity</h2>
             <div className="space-y-4">
               {history.map((item) => (
                 <div key={item.id} className="flex justify-between items-start text-xs border-b border-white/5 pb-2">
                   <div>
-                    <span className="text-[8px] font-black uppercase text-blue-500">{item.status !== 'pending' ? "PICKED" : "SENT"}</span>
+                    <span className="text-[8px] font-black uppercase text-blue-500 italic tracking-widest">{item.status !== 'pending' ? "PICKED" : "SENT"}</span>
                     <p className="text-gray-400 font-mono">{item.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-zinc-600 italic">"{item.message}"</p>
-                    <p className={`font-black uppercase text-[10px] ${item.status === 'yes' ? 'text-green-500' : item.status === 'no' ? 'text-red-500' : 'text-blue-400'}`}>{item.status}</p>
+                    <p className="text-zinc-400 italic mb-1">"{item.message}"</p>
+                    <p className={`font-black uppercase text-[10px] italic ${item.status === 'yes' ? 'text-green-500' : item.status === 'no' ? 'text-red-500' : 'text-blue-400'}`}>{item.status}</p>
                   </div>
                 </div>
               ))}
