@@ -27,6 +27,10 @@ export default function Home() {
   const [history, setHistory] = useState<any[]>([]);
   const [mounted, setMounted] = useState(false);
 
+  // SWIPE STATE
+  const [swipedId, setSwipedId] = useState<string | null>(null);
+  const touchStart = useRef(0);
+
   // CHAT STATES
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [messages, setMessages] = useState<any[]>([]);
@@ -35,7 +39,6 @@ export default function Home() {
   
   const sessionStart = useRef(new Date().getTime());
 
-  // PREVENT ZOOM
   useEffect(() => {
     const meta = document.createElement('meta');
     meta.name = 'viewport';
@@ -136,29 +139,30 @@ export default function Home() {
     setCustomMsg('');
   };
 
-  // UPDATED CANCEL LOGIC: Updates history AND deletes active ping
   const cancelPing = async () => {
-    try {
-      // 1. Find the pending history item
-      const q = query(
-        collection(db, "history"), 
-        where("status", "==", "pending"), 
-        limit(1)
-      );
-      const querySnapshot = await getDocs(q);
-      
-      // 2. Update history status to CANCELED
-      if (!querySnapshot.empty) {
-        const historyId = querySnapshot.docs[0].id;
-        await updateDoc(doc(db, "history", historyId), {
-          status: "CANCELED"
-        });
-      }
+    const q = query(collection(db, "history"), where("status", "==", "pending"), limit(1));
+    const querySnapshot = await getDocs(q);
+    if (!querySnapshot.empty) {
+      await updateDoc(doc(db, "history", querySnapshot.docs[0].id), { status: "CANCELED" });
+    }
+    await deleteDoc(doc(db, "notifications", "current"));
+  };
 
-      // 3. Wipe the active ping
-      await deleteDoc(doc(db, "notifications", "current"));
-    } catch (e) {
-      console.error("Error canceling ping: ", e);
+  const deleteHistoryItem = async (id: string) => {
+    await deleteDoc(doc(db, "history", id));
+    setSwipedId(null);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStart.current = e.targetTouches[0].clientX;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent, id: string) => {
+    const touchEnd = e.targetTouches[0].clientX;
+    if (touchStart.current - touchEnd > 50) {
+      setSwipedId(id);
+    } else if (touchEnd - touchStart.current > 50) {
+      setSwipedId(null);
     }
   };
 
@@ -197,9 +201,9 @@ export default function Home() {
 
   if (!mounted) return <div className="min-h-screen bg-black" />;
   if (!myId) return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-black gap-6 p-6">
-       <button onClick={() => register('iPhone1')} className="w-full max-w-xs border-2 border-white/10 py-6 rounded-3xl font-black italic text-xl text-white">iPhone 1</button>
-       <button onClick={() => register('iPhone2')} className="w-full max-w-xs border-2 border-white/10 py-6 rounded-3xl font-black italic text-xl text-white">iPhone 2</button>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-black gap-6 p-6 font-black italic">
+       <button onClick={() => register('iPhone1')} className="w-full max-w-xs border-2 border-white/10 py-6 rounded-3xl text-xl text-white uppercase tracking-tighter">iPhone 1</button>
+       <button onClick={() => register('iPhone2')} className="w-full max-w-xs border-2 border-white/10 py-6 rounded-3xl text-xl text-white uppercase tracking-tighter">iPhone 2</button>
     </div>
   );
 
@@ -216,12 +220,9 @@ export default function Home() {
         input { font-size: 16px !important; }
       `}</style>
 
-      {/* FIXED CORNER HEADER */}
+      {/* HEADER */}
       <div className="absolute top-0 left-0 w-full z-50 pt-10 px-4 pointer-events-none">
-          <button 
-            onClick={() => setIsChatOpen(!isChatOpen)} 
-            className="pointer-events-auto opacity-100 transition-all active:scale-90 flex items-center relative"
-          >
+          <button onClick={() => setIsChatOpen(!isChatOpen)} className="pointer-events-auto opacity-100 transition-all active:scale-90 flex items-center relative">
             {isChatOpen ? (
               <span className="text-blue-500 font-black italic text-[11px] tracking-widest uppercase py-2 pr-4 bg-black/60 rounded-full backdrop-blur-md">〈 Back</span>
             ) : (
@@ -251,7 +252,7 @@ export default function Home() {
                     <div className={`max-w-[70%] px-4 py-2 rounded-[20px] text-[15px] font-medium ${isMine ? 'bg-blue-600 text-white rounded-br-none' : 'bg-[#262629] text-white rounded-bl-none'}`}>{msg.text}</div>
                   </div>
                   {isMine && isLatest && (
-                    <span className="text-[10px] text-zinc-500 font-bold mt-1 pr-1 text-right">
+                    <span className="text-[10px] text-zinc-500 font-bold mt-1 pr-1 text-right animate-in fade-in duration-300">
                       {msg.seen ? 'Read' : 'Delivered'}
                     </span>
                   )}
@@ -309,28 +310,48 @@ export default function Home() {
             )}
           </div>
 
-          {/* STREAK & HISTORY */}
+          {/* STREAK */}
           <div className="w-full max-w-sm mx-auto flex items-center justify-between px-6 mb-8 opacity-60">
             <div className="flex flex-col items-start text-left">
               <span className="text-[8px] text-zinc-500 uppercase font-black italic tracking-widest mb-1">Quiet Streak</span>
-              <span className="text-sm font-mono text-zinc-300 font-bold">{streak.time}</span>
+              <span className="text-sm font-mono text-zinc-300 font-bold tabular-nums">{streak.time}</span>
             </div>
             <span className="text-2xl drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">{streak.emoji}</span>
           </div>
 
-          <div className="w-full max-w-sm mx-auto bg-zinc-900/40 rounded-3xl p-6 border border-white/5 text-left mb-10">
-            <h2 className="text-[10px] uppercase text-gray-600 mb-4 font-black italic tracking-widest">History</h2>
-            <div className="space-y-4">
+          {/* ACTIVITY WITH SWIPE DELETE */}
+          <div className="w-full max-w-sm mx-auto bg-zinc-900/40 rounded-3xl overflow-hidden border border-white/5 text-left mb-10">
+            <h2 className="text-[10px] uppercase text-gray-600 p-6 pb-4 font-black italic tracking-widest">History</h2>
+            <div className="divide-y divide-white/5">
               {history.map((item) => (
-                <div key={item.id} className="flex justify-between items-start text-xs border-b border-white/5 pb-2">
-                  <div className="flex flex-col">
-                    <span className="text-[8px] font-black uppercase text-blue-500 italic">{item.status !== 'pending' && item.status !== 'CANCELED' ? "PICKED" : item.status === 'CANCELED' ? "CANCELED" : "SENT"}</span>
-                    <p className="text-gray-400 font-mono">{item.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                <div 
+                  key={item.id} 
+                  className="relative overflow-hidden bg-transparent touch-pan-x"
+                  onTouchStart={handleTouchStart}
+                  onTouchMove={(e) => handleTouchMove(e, item.id)}
+                >
+                  <div 
+                    className={`flex justify-between items-start p-6 text-xs transition-transform duration-300 ${swipedId === item.id ? '-translate-x-20' : 'translate-x-0'}`}
+                  >
+                    <div className="flex flex-col">
+                      <span className={`text-[8px] font-black uppercase italic ${item.status === 'CANCELED' ? 'text-red-500' : 'text-blue-500'}`}>
+                        {item.status !== 'pending' && item.status !== 'CANCELED' ? "PICKED" : item.status}
+                      </span>
+                      <p className="text-gray-400 font-mono">{item.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-zinc-400 italic mb-1">"{item.message}"</p>
+                      <p className={`font-black uppercase text-[10px] italic ${item.status === 'yes' ? 'text-green-500' : item.status === 'no' || item.status === 'CANCELED' ? 'text-red-500' : 'text-blue-400'}`}>{item.status}</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-zinc-400 italic mb-1">"{item.message}"</p>
-                    <p className={`font-black uppercase text-[10px] italic ${item.status === 'yes' ? 'text-green-500' : item.status === 'no' || item.status === 'CANCELED' ? 'text-red-500' : 'text-blue-400'}`}>{item.status}</p>
-                  </div>
+                  
+                  {/* DELETE BUTTON */}
+                  <button 
+                    onClick={() => deleteHistoryItem(item.id)}
+                    className={`absolute top-0 right-0 h-full w-20 bg-red-600 text-white font-black italic text-[10px] uppercase transition-opacity duration-300 ${swipedId === item.id ? 'opacity-100' : 'opacity-0'}`}
+                  >
+                    Delete
+                  </button>
                 </div>
               ))}
             </div>
