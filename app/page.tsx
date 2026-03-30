@@ -11,7 +11,8 @@ import {
   limit, 
   where, 
   Timestamp,
-  updateDoc
+  updateDoc,
+  deleteDoc
 } from 'firebase/firestore';
 import { getToken } from 'firebase/messaging';
 
@@ -32,6 +33,14 @@ export default function Home() {
   
   const sessionStart = useRef(new Date().getTime());
 
+  // PREVENT ZOOM ON INPUT FOCUS
+  useEffect(() => {
+    const meta = document.createElement('meta');
+    meta.name = 'viewport';
+    meta.content = 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0';
+    document.getElementsByTagName('head')[0].appendChild(meta);
+  }, []);
+
   useEffect(() => {
     setMounted(true);
     const savedId = localStorage.getItem('myDeviceId') as 'iPhone1' | 'iPhone2';
@@ -50,14 +59,17 @@ export default function Home() {
         } else {
           setStatus('');
         }
+      } else {
+        setAppState(null);
+        setStatus('');
       }
     });
     return () => unsubscribe();
   }, [mounted, myId]);
 
-  // 2. CHAT LISTENER (Keyboard Fix)
+  // 2. CHAT LISTENER
   useEffect(() => {
-    if (!mounted || !isChatOpen) return;
+    if (!mounted) return;
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const q = query(
       collection(db, "messages"),
@@ -70,7 +82,7 @@ export default function Home() {
       setMessages(msgs);
     });
     return () => unsubscribe();
-  }, [mounted, isChatOpen]);
+  }, [mounted]);
 
   // 3. SEEN LOGIC
   useEffect(() => {
@@ -114,6 +126,12 @@ export default function Home() {
     setCustomMsg('');
   };
 
+  const cancelPing = async () => {
+    await deleteDoc(doc(db, "notifications", "current"));
+    setStatus('Canceled 🚫');
+    setTimeout(() => setStatus(''), 2000);
+  };
+
   const sendChatMessage = async () => {
     if (!chatInput.trim()) return;
     const text = chatInput;
@@ -150,36 +168,44 @@ export default function Home() {
   if (!mounted) return <div className="min-h-screen bg-black" />;
   if (!myId) return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-black gap-6 p-6">
-       <button onClick={() => register('iPhone1')} className="w-full max-w-xs border-2 border-white/10 py-6 rounded-3xl font-black italic text-xl text-white">iPhone 1</button>
-       <button onClick={() => register('iPhone2')} className="w-full max-w-xs border-2 border-white/10 py-6 rounded-3xl font-black italic text-xl text-white">iPhone 2</button>
+       <button onClick={() => register('iPhone1')} className="w-full max-w-xs border-2 border-white/10 py-6 rounded-3xl font-black italic text-xl text-white uppercase tracking-tighter">iPhone 1</button>
+       <button onClick={() => register('iPhone2')} className="w-full max-w-xs border-2 border-white/10 py-6 rounded-3xl font-black italic text-xl text-white uppercase tracking-tighter">iPhone 2</button>
     </div>
   );
 
   const isIBeingPinged = appState?.status === 'pending' && appState?.sender !== myId;
   const amIWaiting = appState?.status === 'pending' && appState?.sender === myId;
+  const unreadCount = messages.filter(msg => msg.senderId !== myId && !msg.seen).length;
 
   return (
     <div className={`flex flex-col bg-black text-white relative ${isChatOpen ? 'h-[100dvh] overflow-hidden' : 'min-h-screen'}`}>
       
-      {/* HIDE SCROLLBAR */}
       <style jsx global>{`
         ::-webkit-scrollbar { display: none !important; }
         * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
+        input { font-size: 16px !important; } /* Additional iOS zoom prevention */
       `}</style>
 
       {/* HEADER */}
       <div className="sticky top-0 w-full z-50 px-6 pt-14 pb-4 flex items-center justify-start bg-black/80 backdrop-blur-md">
-          <button onClick={() => setIsChatOpen(!isChatOpen)} className="opacity-40 hover:opacity-100 transition-all active:scale-90 flex items-center">
+          <button onClick={() => setIsChatOpen(!isChatOpen)} className="relative opacity-100 transition-all active:scale-90 flex items-center">
             {isChatOpen ? (
               <span className="text-blue-500 font-black italic text-[10px] tracking-widest uppercase">〈 Back</span>
             ) : (
-              <span className="text-2xl">💬</span>
+              <>
+                <span className="text-2xl">💬</span>
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-2 bg-blue-600 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center animate-bounce shadow-[0_0_10px_rgba(37,99,235,0.5)]">
+                    {unreadCount}
+                  </span>
+                )}
+              </>
             )}
           </button>
       </div>
 
       {isChatOpen ? (
-        /* CHAT VIEW (FIXED KEYBOARD) */
+        /* CHAT VIEW */
         <div className="flex flex-col h-full overflow-hidden animate-in fade-in duration-300">
           <div className="flex-grow overflow-y-auto px-4 space-y-2 pt-4 pb-4 flex flex-col-reverse">
             <div ref={scrollRef} />
@@ -211,8 +237,8 @@ export default function Home() {
           </div>
         </div>
       ) : (
-        /* OLD PING UI (RESTORED) */
-        <div className="flex flex-col px-6 pb-20">
+        /* PING VIEW */
+        <div className="flex flex-col px-6 pb-20 w-full">
           <div className="flex flex-col items-center justify-center py-20 min-h-[70vh]">
             {isIBeingPinged ? (
               <div className="w-full max-w-xs space-y-8 animate-in fade-in zoom-in duration-500 text-center">
@@ -234,24 +260,32 @@ export default function Home() {
                     className="w-full bg-transparent border-b border-white/20 py-4 text-center focus:outline-none focus:border-green-500 text-2xl font-black uppercase italic placeholder:text-zinc-800"
                   />
                 </div>
-                <button disabled={amIWaiting} onClick={sendPing} 
-                  className={`w-64 h-64 rounded-full text-5xl font-black uppercase italic transition-all active:scale-90 ${amIWaiting ? 'bg-zinc-900 text-zinc-700' : 'bg-green-600 shadow-[0_0_80px_rgba(34,197,94,0.4)]'}`}
-                >{amIWaiting ? '...' : 'PUSH'}</button>
+                <div className="relative">
+                  <button disabled={amIWaiting} onClick={sendPing} 
+                    className={`w-64 h-64 rounded-full text-5xl font-black uppercase italic transition-all active:scale-90 ${amIWaiting ? 'bg-zinc-900 text-zinc-700' : 'bg-green-600 shadow-[0_0_80px_rgba(34,197,94,0.4)]'}`}
+                  >{amIWaiting ? '...' : 'PUSH'}</button>
+                  
+                  {amIWaiting && (
+                    <button onClick={cancelPing} className="absolute -bottom-10 left-1/2 -translate-x-1/2 text-[10px] font-black text-red-500 uppercase italic tracking-[0.2em] border border-red-500/30 px-4 py-1 rounded-full active:bg-red-500 active:text-black transition-all">
+                      Cancel Ping
+                    </button>
+                  )}
+                </div>
                 <p className="font-black text-2xl uppercase italic text-yellow-400 h-8">{status}</p>
               </div>
             )}
           </div>
 
           {/* STREAK & HISTORY */}
-          <div className="w-full max-w-sm mx-auto flex items-center justify-between px-6 mb-8 opacity-60">
-            <div className="flex flex-col items-start text-left">
-              <span className="text-[8px] text-zinc-500 uppercase font-black italic tracking-widest mb-1">Quiet Streak</span>
-              <span className="text-sm font-mono text-zinc-300 font-bold">{streak.time}</span>
+          <div className="flex items-center justify-between bg-zinc-900/50 p-5 rounded-3xl mb-4 w-full max-w-sm mx-auto">
+            <div className="text-left">
+              <p className="text-[10px] font-bold text-zinc-500 uppercase font-black italic tracking-widest mb-1">Quiet Streak</p>
+              <p className="text-lg font-mono font-bold text-zinc-300 tabular-nums">{streak.time}</p>
             </div>
             <span className="text-2xl drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">{streak.emoji}</span>
           </div>
 
-          <div className="w-full max-w-sm mx-auto bg-zinc-900/40 rounded-3xl p-6 border border-white/5 text-left">
+          <div className="w-full max-w-sm mx-auto bg-zinc-900/40 rounded-3xl p-6 border border-white/5 text-left mb-10">
             <h2 className="text-[10px] uppercase text-gray-600 mb-4 font-black italic tracking-widest">History</h2>
             <div className="space-y-4">
               {history.map((item) => (
