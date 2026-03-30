@@ -20,6 +20,7 @@ export default function Home() {
   const [myId, setMyId] = useState<'iPhone1' | 'iPhone2' | null>(null);
   const [appState, setAppState] = useState<any>(null);
   const [status, setStatus] = useState('');
+  const [statusColor, setStatusColor] = useState('text-yellow-400');
   const [customMsg, setCustomMsg] = useState('');
   const [replyMsg, setReplyMsg] = useState(''); 
   const [history, setHistory] = useState<any[]>([]);
@@ -33,7 +34,7 @@ export default function Home() {
   
   const sessionStart = useRef(new Date().getTime());
 
-  // 0. PREVENT ZOOM LOGIC
+  // PREVENT ZOOM
   useEffect(() => {
     const meta = document.createElement('meta');
     meta.name = 'viewport';
@@ -56,20 +57,28 @@ export default function Home() {
         setAppState(data);
         if (data.status === 'pending' && data.sender === myId) {
           setStatus('Waiting... ⏳');
+          setStatusColor('text-yellow-400');
         } else {
           setStatus('');
         }
       } else {
+        if (appState?.status === 'pending') {
+          setStatus('CANCELED 🚫');
+          setStatusColor('text-red-500');
+          setTimeout(() => {
+            setStatus('');
+            setStatusColor('text-yellow-400');
+          }, 3000);
+        }
         setAppState(null);
-        setStatus('');
       }
     });
     return () => unsubscribe();
-  }, [mounted, myId]);
+  }, [mounted, myId, appState]);
 
   // 2. CHAT LISTENER
   useEffect(() => {
-    if (!mounted || !isChatOpen) return;
+    if (!mounted) return;
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const q = query(
       collection(db, "messages"),
@@ -82,7 +91,7 @@ export default function Home() {
       setMessages(msgs);
     });
     return () => unsubscribe();
-  }, [mounted, isChatOpen]);
+  }, [mounted]);
 
   // 3. SEEN LOGIC
   useEffect(() => {
@@ -126,7 +135,6 @@ export default function Home() {
     setCustomMsg('');
   };
 
-  // NEW FEATURE: CANCEL PING
   const cancelPing = async () => {
     await deleteDoc(doc(db, "notifications", "current"));
   };
@@ -167,8 +175,8 @@ export default function Home() {
   if (!mounted) return <div className="min-h-screen bg-black" />;
   if (!myId) return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-black gap-6 p-6">
-       <button onClick={() => register('iPhone1')} className="w-full max-w-xs border-2 border-white/10 py-6 rounded-3xl font-black italic text-xl text-white uppercase tracking-tighter">iPhone 1</button>
-       <button onClick={() => register('iPhone2')} className="w-full max-w-xs border-2 border-white/10 py-6 rounded-3xl font-black italic text-xl text-white uppercase tracking-tighter">iPhone 2</button>
+       <button onClick={() => register('iPhone1')} className="w-full max-w-xs border-2 border-white/10 py-6 rounded-3xl font-black italic text-xl text-white">iPhone 1</button>
+       <button onClick={() => register('iPhone2')} className="w-full max-w-xs border-2 border-white/10 py-6 rounded-3xl font-black italic text-xl text-white">iPhone 2</button>
     </div>
   );
 
@@ -185,20 +193,23 @@ export default function Home() {
         input { font-size: 16px !important; }
       `}</style>
 
-      {/* HEADER */}
-      <div className="sticky top-0 w-full z-50 px-6 pt-14 pb-4 flex items-center justify-start bg-black/80 backdrop-blur-md">
-          <button onClick={() => setIsChatOpen(!isChatOpen)} className="opacity-40 hover:opacity-100 transition-all active:scale-90 flex items-center relative">
+      {/* FIXED CORNER HEADER */}
+      <div className="absolute top-0 left-0 w-full z-50 pt-10 px-4 pointer-events-none">
+          <button 
+            onClick={() => setIsChatOpen(!isChatOpen)} 
+            className="pointer-events-auto opacity-100 transition-all active:scale-90 flex items-center relative"
+          >
             {isChatOpen ? (
-              <span className="text-blue-500 font-black italic text-[10px] tracking-widest uppercase">〈 Back</span>
+              <span className="text-blue-500 font-black italic text-[11px] tracking-widest uppercase py-2 pr-4 bg-black/60 rounded-full backdrop-blur-md">〈 Back</span>
             ) : (
-              <>
+              <div className="relative p-2 bg-black/40 rounded-full backdrop-blur-md">
                 <span className="text-2xl">💬</span>
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-2 bg-blue-600 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-black">
                     {unreadCount}
                   </span>
                 )}
-              </>
+              </div>
             )}
           </button>
       </div>
@@ -206,7 +217,7 @@ export default function Home() {
       {isChatOpen ? (
         /* CHAT VIEW */
         <div className="flex flex-col h-full overflow-hidden animate-in fade-in duration-300">
-          <div className="flex-grow overflow-y-auto px-4 space-y-2 pt-4 pb-4 flex flex-col-reverse">
+          <div className="flex-grow overflow-y-auto px-4 space-y-2 pt-24 pb-4 flex flex-col-reverse">
             <div ref={scrollRef} />
             {messages.filter(msg => msg.text?.trim()).map((msg, idx) => {
               const isMine = msg.senderId === myId;
@@ -217,7 +228,7 @@ export default function Home() {
                     <div className={`max-w-[70%] px-4 py-2 rounded-[20px] text-[15px] font-medium ${isMine ? 'bg-blue-600 text-white rounded-br-none' : 'bg-[#262629] text-white rounded-bl-none'}`}>{msg.text}</div>
                   </div>
                   {isMine && isLatest && (
-                    <span className="text-[10px] text-zinc-500 font-bold mt-1 pr-1 text-right animate-in fade-in duration-300">
+                    <span className="text-[10px] text-zinc-500 font-bold mt-1 pr-1 text-right">
                       {msg.seen ? 'Read' : 'Delivered'}
                     </span>
                   )}
@@ -236,9 +247,9 @@ export default function Home() {
           </div>
         </div>
       ) : (
-        /* OLD PING UI (RESTORED) */
-        <div className="flex flex-col px-6 pb-20">
-          <div className="flex flex-col items-center justify-center py-20 min-h-[70vh]">
+        /* PING VIEW */
+        <div className="flex flex-col px-6 pb-20 pt-16">
+          <div className="flex flex-col items-center justify-center py-20 min-h-[60vh]">
             {isIBeingPinged ? (
               <div className="w-full max-w-xs space-y-8 animate-in fade-in zoom-in duration-500 text-center">
                 <p className="text-3xl font-black tracking-tighter italic uppercase">{appState.message}</p>
@@ -265,16 +276,17 @@ export default function Home() {
                   >{amIWaiting ? '...' : 'PUSH'}</button>
                   
                   {amIWaiting && (
-                    <button onClick={cancelPing} className="text-red-500 font-black italic uppercase text-xs tracking-widest pt-2">
+                    <button onClick={cancelPing} className="text-red-500 font-black italic uppercase text-xs tracking-[0.2em] pt-4 active:opacity-50 transition-opacity">
                       Cancel Ping
                     </button>
                   )}
                 </div>
-                <p className="font-black text-2xl uppercase italic text-yellow-400 h-8">{status}</p>
+                <p className={`font-black text-2xl uppercase italic h-8 ${statusColor}`}>{status}</p>
               </div>
             )}
           </div>
 
+          {/* STREAK & HISTORY */}
           <div className="w-full max-w-sm mx-auto flex items-center justify-between px-6 mb-8 opacity-60">
             <div className="flex flex-col items-start text-left">
               <span className="text-[8px] text-zinc-500 uppercase font-black italic tracking-widest mb-1">Quiet Streak</span>
@@ -283,7 +295,7 @@ export default function Home() {
             <span className="text-2xl drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">{streak.emoji}</span>
           </div>
 
-          <div className="w-full max-w-sm mx-auto bg-zinc-900/40 rounded-3xl p-6 border border-white/5 text-left">
+          <div className="w-full max-w-sm mx-auto bg-zinc-900/40 rounded-3xl p-6 border border-white/5 text-left mb-10">
             <h2 className="text-[10px] uppercase text-gray-600 mb-4 font-black italic tracking-widest">History</h2>
             <div className="space-y-4">
               {history.map((item) => (
