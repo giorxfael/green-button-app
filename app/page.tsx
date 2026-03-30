@@ -33,7 +33,7 @@ export default function Home() {
   
   const sessionStart = useRef(new Date().getTime());
 
-  // PREVENT ZOOM ON INPUT FOCUS
+  // 0. PREVENT ZOOM LOGIC
   useEffect(() => {
     const meta = document.createElement('meta');
     meta.name = 'viewport';
@@ -69,7 +69,7 @@ export default function Home() {
 
   // 2. CHAT LISTENER
   useEffect(() => {
-    if (!mounted) return;
+    if (!mounted || !isChatOpen) return;
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const q = query(
       collection(db, "messages"),
@@ -82,7 +82,7 @@ export default function Home() {
       setMessages(msgs);
     });
     return () => unsubscribe();
-  }, [mounted]);
+  }, [mounted, isChatOpen]);
 
   // 3. SEEN LOGIC
   useEffect(() => {
@@ -126,10 +126,9 @@ export default function Home() {
     setCustomMsg('');
   };
 
+  // NEW FEATURE: CANCEL PING
   const cancelPing = async () => {
     await deleteDoc(doc(db, "notifications", "current"));
-    setStatus('Canceled 🚫');
-    setTimeout(() => setStatus(''), 2000);
   };
 
   const sendChatMessage = async () => {
@@ -183,19 +182,19 @@ export default function Home() {
       <style jsx global>{`
         ::-webkit-scrollbar { display: none !important; }
         * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
-        input { font-size: 16px !important; } /* Additional iOS zoom prevention */
+        input { font-size: 16px !important; }
       `}</style>
 
       {/* HEADER */}
       <div className="sticky top-0 w-full z-50 px-6 pt-14 pb-4 flex items-center justify-start bg-black/80 backdrop-blur-md">
-          <button onClick={() => setIsChatOpen(!isChatOpen)} className="relative opacity-100 transition-all active:scale-90 flex items-center">
+          <button onClick={() => setIsChatOpen(!isChatOpen)} className="opacity-40 hover:opacity-100 transition-all active:scale-90 flex items-center relative">
             {isChatOpen ? (
               <span className="text-blue-500 font-black italic text-[10px] tracking-widest uppercase">〈 Back</span>
             ) : (
               <>
                 <span className="text-2xl">💬</span>
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-2 bg-blue-600 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center animate-bounce shadow-[0_0_10px_rgba(37,99,235,0.5)]">
+                  <span className="absolute -top-1 -right-2 bg-blue-600 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center">
                     {unreadCount}
                   </span>
                 )}
@@ -237,8 +236,8 @@ export default function Home() {
           </div>
         </div>
       ) : (
-        /* PING VIEW */
-        <div className="flex flex-col px-6 pb-20 w-full">
+        /* OLD PING UI (RESTORED) */
+        <div className="flex flex-col px-6 pb-20">
           <div className="flex flex-col items-center justify-center py-20 min-h-[70vh]">
             {isIBeingPinged ? (
               <div className="w-full max-w-xs space-y-8 animate-in fade-in zoom-in duration-500 text-center">
@@ -260,13 +259,13 @@ export default function Home() {
                     className="w-full bg-transparent border-b border-white/20 py-4 text-center focus:outline-none focus:border-green-500 text-2xl font-black uppercase italic placeholder:text-zinc-800"
                   />
                 </div>
-                <div className="relative">
+                <div className="flex flex-col items-center gap-4">
                   <button disabled={amIWaiting} onClick={sendPing} 
                     className={`w-64 h-64 rounded-full text-5xl font-black uppercase italic transition-all active:scale-90 ${amIWaiting ? 'bg-zinc-900 text-zinc-700' : 'bg-green-600 shadow-[0_0_80px_rgba(34,197,94,0.4)]'}`}
                   >{amIWaiting ? '...' : 'PUSH'}</button>
                   
                   {amIWaiting && (
-                    <button onClick={cancelPing} className="absolute -bottom-10 left-1/2 -translate-x-1/2 text-[10px] font-black text-red-500 uppercase italic tracking-[0.2em] border border-red-500/30 px-4 py-1 rounded-full active:bg-red-500 active:text-black transition-all">
+                    <button onClick={cancelPing} className="text-red-500 font-black italic uppercase text-xs tracking-widest pt-2">
                       Cancel Ping
                     </button>
                   )}
@@ -276,16 +275,15 @@ export default function Home() {
             )}
           </div>
 
-          {/* STREAK & HISTORY */}
-          <div className="flex items-center justify-between bg-zinc-900/50 p-5 rounded-3xl mb-4 w-full max-w-sm mx-auto">
-            <div className="text-left">
-              <p className="text-[10px] font-bold text-zinc-500 uppercase font-black italic tracking-widest mb-1">Quiet Streak</p>
-              <p className="text-lg font-mono font-bold text-zinc-300 tabular-nums">{streak.time}</p>
+          <div className="w-full max-w-sm mx-auto flex items-center justify-between px-6 mb-8 opacity-60">
+            <div className="flex flex-col items-start text-left">
+              <span className="text-[8px] text-zinc-500 uppercase font-black italic tracking-widest mb-1">Quiet Streak</span>
+              <span className="text-sm font-mono text-zinc-300 font-bold">{streak.time}</span>
             </div>
             <span className="text-2xl drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">{streak.emoji}</span>
           </div>
 
-          <div className="w-full max-w-sm mx-auto bg-zinc-900/40 rounded-3xl p-6 border border-white/5 text-left mb-10">
+          <div className="w-full max-w-sm mx-auto bg-zinc-900/40 rounded-3xl p-6 border border-white/5 text-left">
             <h2 className="text-[10px] uppercase text-gray-600 mb-4 font-black italic tracking-widest">History</h2>
             <div className="space-y-4">
               {history.map((item) => (
