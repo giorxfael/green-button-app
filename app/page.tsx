@@ -12,7 +12,8 @@ import {
   where, 
   Timestamp,
   updateDoc,
-  deleteDoc
+  deleteDoc,
+  getDocs
 } from 'firebase/firestore';
 import { getToken } from 'firebase/messaging';
 
@@ -135,8 +136,30 @@ export default function Home() {
     setCustomMsg('');
   };
 
+  // UPDATED CANCEL LOGIC: Updates history AND deletes active ping
   const cancelPing = async () => {
-    await deleteDoc(doc(db, "notifications", "current"));
+    try {
+      // 1. Find the pending history item
+      const q = query(
+        collection(db, "history"), 
+        where("status", "==", "pending"), 
+        limit(1)
+      );
+      const querySnapshot = await getDocs(q);
+      
+      // 2. Update history status to CANCELED
+      if (!querySnapshot.empty) {
+        const historyId = querySnapshot.docs[0].id;
+        await updateDoc(doc(db, "history", historyId), {
+          status: "CANCELED"
+        });
+      }
+
+      // 3. Wipe the active ping
+      await deleteDoc(doc(db, "notifications", "current"));
+    } catch (e) {
+      console.error("Error canceling ping: ", e);
+    }
   };
 
   const sendChatMessage = async () => {
@@ -301,12 +324,12 @@ export default function Home() {
               {history.map((item) => (
                 <div key={item.id} className="flex justify-between items-start text-xs border-b border-white/5 pb-2">
                   <div className="flex flex-col">
-                    <span className="text-[8px] font-black uppercase text-blue-500 italic">{item.status !== 'pending' ? "PICKED" : "SENT"}</span>
+                    <span className="text-[8px] font-black uppercase text-blue-500 italic">{item.status !== 'pending' && item.status !== 'CANCELED' ? "PICKED" : item.status === 'CANCELED' ? "CANCELED" : "SENT"}</span>
                     <p className="text-gray-400 font-mono">{item.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-zinc-400 italic mb-1">"{item.message}"</p>
-                    <p className={`font-black uppercase text-[10px] italic ${item.status === 'yes' ? 'text-green-500' : item.status === 'no' ? 'text-red-500' : 'text-blue-400'}`}>{item.status}</p>
+                    <p className={`font-black uppercase text-[10px] italic ${item.status === 'yes' ? 'text-green-500' : item.status === 'no' || item.status === 'CANCELED' ? 'text-red-500' : 'text-blue-400'}`}>{item.status}</p>
                   </div>
                 </div>
               ))}
