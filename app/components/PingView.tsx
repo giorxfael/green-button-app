@@ -8,10 +8,7 @@ import {
   query, 
   orderBy, 
   limit, 
-  where, 
-  Timestamp, 
-  setDoc, 
-  addDoc 
+  Timestamp 
 } from 'firebase/firestore';
 import { sendPingAction, cancelPingAction } from '../actions';
 
@@ -22,13 +19,9 @@ export default function PingView({ myId }: { myId: string }) {
   const [statusColor, setStatusColor] = useState('text-yellow-400');
   const [customMsg, setCustomMsg] = useState('');
   const [replyMsg, setReplyMsg] = useState('');
-  const [swipedId, setSwipedId] = useState<string | null>(null);
 
   // 1. REAL-TIME LISTENERS
-  // Inside app/components/PingView.tsx
-
   useEffect(() => {
-    // 1. Live Ping Listener
     const unsubPing = onSnapshot(doc(db, "notifications", "current"), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -40,9 +33,8 @@ export default function PingView({ myId }: { myId: string }) {
           setStatus('');
         }
       } else {
-        // Logic for when the doc is deleted (Canceled)
-        setAppState(null); 
-        // Only show CANCELED if we were actually waiting
+        setAppState(null);
+        // Only show CANCELED if the user was actually waiting for a ping
         if (status === 'Waiting... ⏳') {
           setStatus('CANCELED 🚫');
           setStatusColor('text-red-500');
@@ -53,30 +45,36 @@ export default function PingView({ myId }: { myId: string }) {
         }
       }
     });
-  
-    // 2. History Listener (Keep this exactly like this)
+
     const q = query(collection(db, "history"), orderBy("timestamp", "desc"), limit(5));
     const unsubHist = onSnapshot(q, (snap) => {
       setHistory(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
-  
+
     return () => {
       unsubPing();
       unsubHist();
     };
-  }, [myId]); // Remove status/appState from here to stop the "close app" bug
-  
+  }, [myId, status]); // Added status to track when to show "CANCELED"
+
+  // 2. ACTIONS
+  const sendPing = async () => {
+    const msg = customMsg.trim() || "🔔";
+    setCustomMsg('');
+    await sendPingAction(msg, myId);
+  };
+
   const cancelPing = () => {
-    // OPTIMISTIC RESET: Kill the "Waiting" screen immediately
-    setAppState(null); 
+    // INSTANT UI RESET: Clear the "Waiting" view immediately
+    setAppState(null);
     setStatus('CANCELED 🚫');
     setStatusColor('text-red-500');
-  
-    // Background cleanup - don't 'await' this or the UI will freeze
+
+    // Run DB cleanup in background - No 'await' so UI stays snappy
     cancelPingAction().catch((err) => {
       console.error("Database cleanup failed:", err);
     });
-  
+
     setTimeout(() => {
       setStatus('');
       setStatusColor('text-yellow-400');
@@ -110,7 +108,6 @@ export default function PingView({ myId }: { myId: string }) {
     <div className="flex flex-col px-6 pb-20 pt-16 animate-in fade-in duration-500">
       <div className="flex flex-col items-center justify-center py-20 min-h-[60vh]">
         {isIBeingPinged ? (
-          /* RESPOND VIEW */
           <div className="w-full max-w-xs space-y-8 text-center animate-in zoom-in duration-300">
             <p className="text-3xl font-black tracking-tighter italic uppercase">{appState.message}</p>
             <input 
@@ -124,7 +121,6 @@ export default function PingView({ myId }: { myId: string }) {
             </div>
           </div>
         ) : (
-          /* DASHBOARD VIEW */
           <div className="flex flex-col items-center space-y-12">
             <div className="relative w-72">
               <input 
@@ -157,36 +153,28 @@ export default function PingView({ myId }: { myId: string }) {
         )}
       </div>
 
-      {/* QUIET STREAK */}
       <div className="w-full max-w-sm mx-auto flex items-center justify-between px-6 mb-8 opacity-60">
         <div className="flex flex-col text-left">
           <span className="text-[8px] font-black italic uppercase tracking-widest mb-1">Quiet Streak</span>
           <span className="text-sm font-mono font-bold text-zinc-300 tabular-nums">{streak.time}</span>
         </div>
-        <span className="text-2xl drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">{streak.emoji}</span>
+        <span className="text-2xl">{streak.emoji}</span>
       </div>
 
-      {/* HISTORY LIST */}
       <div className="w-full max-w-sm mx-auto bg-zinc-900/40 rounded-3xl p-6 border border-white/5 text-left mb-10">
         <h2 className="text-[10px] uppercase text-gray-600 mb-4 font-black italic tracking-widest">History</h2>
         <div className="space-y-4">
           {history.map((item) => (
             <div key={item.id} className="flex justify-between items-start text-xs border-b border-white/5 pb-2">
               <div className="flex flex-col">
-                <span className={`text-[8px] font-black uppercase italic ${
-                  item.status === 'CANCELED' ? 'text-red-500' : 'text-blue-500'
-                }`}>
+                <span className={`text-[8px] font-black uppercase italic ${item.status === 'CANCELED' ? 'text-red-500' : 'text-blue-500'}`}>
                   {item.status !== 'pending' && item.status !== 'CANCELED' ? "PICKED" : item.status}
                 </span>
                 <p className="text-gray-400 font-mono">{item.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
               </div>
               <div className="text-right">
                 <p className="text-zinc-400 italic mb-1">"{item.message}"</p>
-                <p className={`font-black uppercase text-[10px] italic ${
-                  item.status === 'yes' ? 'text-green-500' : 
-                  item.status === 'no' || item.status === 'CANCELED' ? 'text-red-500' : 
-                  'text-blue-400'
-                }`}>{item.status}</p>
+                <p className={`font-black uppercase text-[10px] italic ${item.status === 'yes' ? 'text-green-500' : item.status === 'no' || item.status === 'CANCELED' ? 'text-red-500' : 'text-blue-400'}`}>{item.status}</p>
               </div>
             </div>
           ))}
