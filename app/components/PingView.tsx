@@ -25,8 +25,10 @@ export default function PingView({ myId }: { myId: string }) {
   const [swipedId, setSwipedId] = useState<string | null>(null);
 
   // 1. REAL-TIME LISTENERS
+  // Inside app/components/PingView.tsx
+
   useEffect(() => {
-    // Sync the Live Ping
+    // 1. Live Ping Listener
     const unsubPing = onSnapshot(doc(db, "notifications", "current"), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -38,8 +40,10 @@ export default function PingView({ myId }: { myId: string }) {
           setStatus('');
         }
       } else {
-        // Handle Canceled state visually
-        if (appState?.status === 'pending') {
+        // Logic for when the doc is deleted (Canceled)
+        setAppState(null); 
+        // Only show CANCELED if we were actually waiting
+        if (status === 'Waiting... ⏳') {
           setStatus('CANCELED 🚫');
           setStatusColor('text-red-500');
           setTimeout(() => {
@@ -47,45 +51,32 @@ export default function PingView({ myId }: { myId: string }) {
             setStatusColor('text-yellow-400');
           }, 3000);
         }
-        setAppState(null);
       }
     });
-
-    // Sync History List
+  
+    // 2. History Listener (Keep this exactly like this)
     const q = query(collection(db, "history"), orderBy("timestamp", "desc"), limit(5));
     const unsubHist = onSnapshot(q, (snap) => {
       setHistory(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
-
+  
     return () => {
       unsubPing();
       unsubHist();
     };
-  }, [myId, appState]);
-
-  // 2. ACTIONS
-  const sendPing = async () => {
-    const msg = customMsg.trim() || "🔔";
-    setCustomMsg('');
-    // Call Server Action
-    await sendPingAction(msg, myId);
-  };
+  }, [myId]); // Remove status/appState from here to stop the "close app" bug
+  
   const cancelPing = () => {
-    // 1. INSTANT UI RESET (No 'await' here)
-    // This clears the PUSH button and shows "CANCELED" immediately
+    // OPTIMISTIC RESET: Kill the "Waiting" screen immediately
     setAppState(null); 
     setStatus('CANCELED 🚫');
     setStatusColor('text-red-500');
-
-    // 2. BACKGROUND CLEANUP
-    // We fire the server action but we don't make the UI wait for it.
+  
+    // Background cleanup - don't 'await' this or the UI will freeze
     cancelPingAction().catch((err) => {
-      console.error("Background cancel failed:", err);
-      // Optional: if it fails, you could trigger a toast, 
-      // but usually, it's better to stay silent for "feel"
+      console.error("Database cleanup failed:", err);
     });
-
-    // 3. UI RESET TIMER
+  
     setTimeout(() => {
       setStatus('');
       setStatusColor('text-yellow-400');
