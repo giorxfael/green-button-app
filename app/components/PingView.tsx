@@ -72,19 +72,19 @@ export default function PingView({ myId }: { myId: string }) {
   };
 
   const cancelPing = async () => {
-    // OPTIMISTIC UI: Clear button and show red status IMMEDIATELY to prevent "freezing"
+    // 1. Force the UI to reset immediately
     setAppState(null);
     setStatus('CANCELED 🚫');
     setStatusColor('text-red-500');
 
-    try {
-      // Execute heavy DB work in background
-      await cancelPingAction();
-    } catch (e) {
-      console.error("Cancel failed:", e);
-    }
+    // 2. Fire and forget the server work
+    cancelPingAction().then((res) => {
+      if (!res.success) {
+        console.log("Server cancel failed but UI reset anyway");
+      }
+    });
 
-    // Reset status text after 3 seconds
+    // 3. Clear the red text after 3 seconds
     setTimeout(() => {
       setStatus('');
       setStatusColor('text-yellow-400');
