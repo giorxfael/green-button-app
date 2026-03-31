@@ -70,21 +70,22 @@ export default function PingView({ myId }: { myId: string }) {
     // Call Server Action
     await sendPingAction(msg, myId);
   };
-
-  const cancelPing = async () => {
-    // 1. Force the UI to reset immediately
-    setAppState(null);
+  const cancelPing = () => {
+    // 1. INSTANT UI RESET (No 'await' here)
+    // This clears the PUSH button and shows "CANCELED" immediately
+    setAppState(null); 
     setStatus('CANCELED 🚫');
     setStatusColor('text-red-500');
 
-    // 2. Fire and forget the server work
-    cancelPingAction().then((res) => {
-      if (!res.success) {
-        console.log("Server cancel failed but UI reset anyway");
-      }
+    // 2. BACKGROUND CLEANUP
+    // We fire the server action but we don't make the UI wait for it.
+    cancelPingAction().catch((err) => {
+      console.error("Background cancel failed:", err);
+      // Optional: if it fails, you could trigger a toast, 
+      // but usually, it's better to stay silent for "feel"
     });
 
-    // 3. Clear the red text after 3 seconds
+    // 3. UI RESET TIMER
     setTimeout(() => {
       setStatus('');
       setStatusColor('text-yellow-400');
