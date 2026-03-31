@@ -17,6 +17,76 @@ import {
 } from 'firebase/firestore';
 import { getToken } from 'firebase/messaging';
 
+// --- NEW iMESSAGE HEADER COMPONENT ---
+export function Header({ isChatOpen, setIsChatOpen, myId }: any) { 
+  const [unreadCount, setUnreadCount] = useState(0); 
+
+  useEffect(() => { 
+    if (!myId) return; 
+    const twentyFourHoursAgo = new Date(Date.now() - 86400000); 
+    const q = query( 
+      collection(db, "messages"), 
+      where("timestamp", ">=", Timestamp.fromDate(twentyFourHoursAgo)), 
+      where("senderId", "!=", myId) 
+    ); 
+
+    return onSnapshot(q, (snap) => { 
+      const unread = snap.docs.filter(d => !d.data().seen).length; 
+      setUnreadCount(unread); 
+    }); 
+  }, [myId]); 
+
+  // iMessage Style Chat Header
+  if (isChatOpen) {
+    const otherPhone = myId === 'iPhone1' ? 'iPhone 2' : 'iPhone 1';
+    
+    return (
+      <div className="fixed top-0 left-0 w-full z-50 bg-[#121212]/85 backdrop-blur-xl border-b border-white/10 pt-12 pb-2 px-4 flex items-center justify-between">
+        <button 
+          onClick={() => setIsChatOpen(false)} 
+          className="flex items-center text-[#0a84ff] active:opacity-50 transition-opacity"
+        >
+          <span className="text-4xl leading-none -mt-1 font-light pr-1">‹</span>
+          <span className="text-[17px] font-normal pt-1">{unreadCount > 0 ? unreadCount : ''}</span>
+        </button>
+        
+        {/* Center Contact Info */}
+        <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-zinc-600 to-zinc-400 mb-0.5 flex items-center justify-center">
+            <span className="text-white text-[10px] font-bold text-center">👤</span>
+          </div>
+          <span className="text-[10px] font-semibold text-white tracking-wide">{otherPhone}</span>
+        </div>
+        
+        {/* Invisible spacer to keep flexbox perfectly centered */}
+        <div className="w-10"></div> 
+      </div>
+    );
+  }
+
+  // Original Ping View Floating Bubble
+  return ( 
+    <div className="absolute top-0 left-0 w-full z-50 pt-10 px-4 pointer-events-none"> 
+      <button  
+        onClick={() => setIsChatOpen(true)}  
+        className="pointer-events-auto opacity-100 transition-all active:scale-90 flex items-center relative" 
+      > 
+        <div className="relative p-2 bg-black/40 rounded-full backdrop-blur-md"> 
+          <span className="text-2xl">💬</span> 
+          {unreadCount > 0 && ( 
+            <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-black"> 
+              {unreadCount} 
+            </span> 
+          )} 
+        </div> 
+      </button> 
+    </div> 
+  ); 
+}
+// --- END HEADER COMPONENT ---
+
+
+// --- YOUR UNTOUCHED HOME COMPONENT ---
 export default function Home() {
   const [myId, setMyId] = useState<'iPhone1' | 'iPhone2' | null>(null);
   const [appState, setAppState] = useState<any>(null);
@@ -209,7 +279,6 @@ export default function Home() {
 
   const isIBeingPinged = appState?.status === 'pending' && appState?.sender !== myId;
   const amIWaiting = appState?.status === 'pending' && appState?.sender === myId;
-  const unreadCount = messages.filter(msg => msg.senderId !== myId && !msg.seen).length;
 
   return (
     <div className={`flex flex-col bg-black text-white relative ${isChatOpen ? 'h-[100dvh] overflow-hidden' : 'min-h-screen'}`}>
@@ -220,23 +289,8 @@ export default function Home() {
         input { font-size: 16px !important; }
       `}</style>
 
-      {/* HEADER */}
-      <div className="absolute top-0 left-0 w-full z-50 pt-10 px-4 pointer-events-none">
-          <button onClick={() => setIsChatOpen(!isChatOpen)} className="pointer-events-auto opacity-100 transition-all active:scale-90 flex items-center relative">
-            {isChatOpen ? (
-              <span className="text-blue-500 font-black italic text-[11px] tracking-widest uppercase py-2 pr-4 bg-black/60 rounded-full backdrop-blur-md">〈 Back</span>
-            ) : (
-              <div className="relative p-2 bg-black/40 rounded-full backdrop-blur-md">
-                <span className="text-2xl">💬</span>
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-black">
-                    {unreadCount}
-                  </span>
-                )}
-              </div>
-            )}
-          </button>
-      </div>
+      {/* HEADER COMPONENT */}
+      <Header isChatOpen={isChatOpen} setIsChatOpen={setIsChatOpen} myId={myId} />
 
       {isChatOpen ? (
         /* CHAT VIEW */
