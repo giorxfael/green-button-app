@@ -17,7 +17,7 @@ import {
 } from 'firebase/firestore';
 import { getToken } from 'firebase/messaging';
 
-// --- NEW iMESSAGE HEADER COMPONENT ---
+// --- UPDATED HEADER COMPONENT ---
 export function Header({ isChatOpen, setIsChatOpen, myId }: any) { 
   const [unreadCount, setUnreadCount] = useState(0); 
 
@@ -41,7 +41,8 @@ export function Header({ isChatOpen, setIsChatOpen, myId }: any) {
     const otherPhone = myId === 'iPhone1' ? 'iPhone 2' : 'iPhone 1';
     
     return (
-      <div className="fixed top-0 left-0 w-full z-50 bg-[#121212]/85 backdrop-blur-xl border-b border-white/10 pt-12 pb-2 px-4 flex items-center justify-between">
+      // Changed from 'fixed' to 'absolute' so iOS keyboard doesn't push it off screen
+      <div className="absolute top-0 left-0 w-full z-50 bg-[#121212]/85 backdrop-blur-xl border-b border-white/10 pt-12 pb-3 px-4 flex items-center justify-between">
         <button 
           onClick={() => setIsChatOpen(false)} 
           className="flex items-center text-[#0a84ff] active:opacity-50 transition-opacity"
@@ -50,12 +51,9 @@ export function Header({ isChatOpen, setIsChatOpen, myId }: any) {
           <span className="text-[17px] font-normal pt-1">{unreadCount > 0 ? unreadCount : ''}</span>
         </button>
         
-        {/* Center Contact Info */}
+        {/* Center Contact Info (Avatar removed) */}
         <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-zinc-600 to-zinc-400 mb-0.5 flex items-center justify-center">
-            <span className="text-white text-[10px] font-bold text-center">👤</span>
-          </div>
-          <span className="text-[10px] font-semibold text-white tracking-wide">{otherPhone}</span>
+          <span className="text-[13px] font-semibold text-white tracking-wide">{otherPhone}</span>
         </div>
         
         {/* Invisible spacer to keep flexbox perfectly centered */}
@@ -317,7 +315,16 @@ export default function Home() {
           </div>
           <div className="w-full bg-[#121212]/90 backdrop-blur-2xl border-t border-white/10 px-4 py-3 pb-10">
             <div className="relative flex items-center bg-[#1c1c1e] rounded-full border border-white/10 pr-2">
-              <input type="text" placeholder="iMessage" autoFocus value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && sendChatMessage()}
+              <input 
+                type="text" 
+                placeholder="iMessage" 
+                autoFocus 
+                value={chatInput} 
+                onChange={(e) => setChatInput(e.target.value)} 
+                onKeyDown={(e) => e.key === 'Enter' && sendChatMessage()}
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck="false"
                 className="w-full bg-transparent py-3 px-4 text-sm focus:outline-none placeholder:text-zinc-600"
               />
               <button onClick={sendChatMessage} disabled={!chatInput.trim()} className="w-8 h-8 rounded-full flex items-center justify-center bg-blue-600 active:scale-90 transition-all"><span className="text-white text-lg font-bold">↑</span></button>
