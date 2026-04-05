@@ -31,11 +31,17 @@ export default function Home() {
     setMounted(true);
     const savedId = localStorage.getItem('myDeviceId') as 'iPhone1' | 'iPhone2';
     if (savedId) setMyId(savedId);
+
+    const meta = document.createElement('meta');
+    meta.name = 'viewport';
+    meta.content = 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no';
+    document.getElementsByTagName('head')[0].appendChild(meta);
   }, []);
 
+  // 1. PING LISTENER
   useEffect(() => {
     if (!mounted || !myId) return;
-    return onSnapshot(doc(db, "notifications", "current"), (docSnap) => {
+    const unsubscribe = onSnapshot(doc(db, "notifications", "current"), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         setAppState(data);
@@ -50,14 +56,17 @@ export default function Home() {
         setAppState(null);
       }
     });
+    return () => unsubscribe();
   }, [mounted, myId, appState]);
 
+  // 2. CHAT LISTENER
   useEffect(() => {
     if (!mounted) return;
     const q = query(collection(db, "messages"), where("timestamp", ">=", Timestamp.fromDate(new Date(Date.now() - 86400000))), orderBy("timestamp", "desc"));
-    return onSnapshot(q, (snap) => setMessages(snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
+    return onSnapshot(q, (snapshot) => setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
   }, [mounted]);
 
+  // 3. SEEN LOGIC
   useEffect(() => {
     if (!mounted || !isChatOpen || !messages.length || !myId) return;
     messages.filter(msg => msg.senderId !== myId && !msg.seen).forEach(async (msg) => {
@@ -65,10 +74,11 @@ export default function Home() {
     });
   }, [isChatOpen, messages, myId, mounted]);
 
+  // 4. HISTORY LISTENER
   useEffect(() => {
     if (!mounted) return;
     const q = query(collection(db, "history"), orderBy("timestamp", "desc"), limit(5));
-    return onSnapshot(q, (snap) => setHistory(snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
+    return onSnapshot(q, (snapshot) => setHistory(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
   }, [mounted]);
 
   const streak = (() => {
@@ -126,6 +136,8 @@ export default function Home() {
     </div>
   );
 
+  const unreadCount = messages.filter(msg => msg.senderId !== myId && !msg.seen).length;
+
   return (
     <div className={`flex flex-col bg-black text-white relative ${isChatOpen ? 'h-[100dvh] overflow-hidden' : 'min-h-screen'}`}>
       <style jsx global>{`
@@ -134,26 +146,27 @@ export default function Home() {
         input { font-size: 16px !important; }
       `}</style>
 
-      {/* HEADER */}
-      <div className="absolute top-0 left-0 w-full z-50 pt-10 px-4 pointer-events-none">
-          <button onClick={() => setIsChatOpen(!isChatOpen)} className="pointer-events-auto opacity-100 transition-all active:scale-90 flex items-center relative">
-            {isChatOpen ? (
-              <span className="text-blue-500 font-black italic text-[11px] tracking-widest uppercase py-2 pr-4 bg-black/60 rounded-full backdrop-blur-md">〈 Back</span>
-            ) : (
-              <div className="relative p-2 bg-black/40 rounded-full backdrop-blur-md">
-                <span className="text-2xl">💬</span>
-                {messages.filter(msg => msg.senderId !== myId && !msg.seen).length > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-black">
-                    {messages.filter(msg => msg.senderId !== myId && !msg.seen).length}
-                  </span>
-                )}
-              </div>
-            )}
-          </button>
-      </div>
+      {/* FLOATING CHAT BUBBLE (Only shown in Ping View) */}
+      {!isChatOpen && (
+        <div className="absolute top-0 left-0 w-full z-50 pt-10 px-4 pointer-events-none">
+            <button onClick={() => setIsChatOpen(true)} className="pointer-events-auto opacity-100 transition-all active:scale-90 flex items-center relative">
+                <div className="relative p-2 bg-black/40 rounded-full backdrop-blur-md">
+                  <span className="text-2xl">💬</span>
+                  {unreadCount > 0 && <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-black">{unreadCount}</span>}
+                </div>
+            </button>
+        </div>
+      )}
 
       {isChatOpen ? (
-        <ChatView messages={messages} myId={myId} chatInput={chatInput} setChatInput={setChatInput} sendChatMessage={sendChatMessage} />
+        <ChatView 
+          messages={messages} 
+          myId={myId} 
+          chatInput={chatInput} 
+          setChatInput={setChatInput} 
+          sendChatMessage={sendChatMessage} 
+          setIsChatOpen={setIsChatOpen} 
+        />
       ) : (
         <PingView 
           isIBeingPinged={appState?.status === 'pending' && appState?.sender !== myId}
