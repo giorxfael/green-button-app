@@ -15,7 +15,7 @@ export default function ChatView({
   return (
     <div className="flex flex-col h-[100dvh] overflow-hidden bg-black animate-in fade-in duration-300">
       
-      {/* iMessage Top Banner - Name Only */}
+      {/* iMessage Top Banner */}
       <div className="fixed top-0 left-0 w-full z-50 bg-[#121212]/85 backdrop-blur-xl border-b border-white/5 pt-12 pb-5 px-4 flex items-center justify-between">
         <button 
           onClick={() => setIsChatOpen(false)} 
@@ -24,25 +24,30 @@ export default function ChatView({
           <span className="text-4xl leading-none -mt-1 font-light pr-1">‹</span>
         </button>
         
-        {/* Center Name Only */}
         <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center">
           <span className="text-[13px] font-semibold text-white tracking-wide">{otherPhone}</span>
         </div>
         
-        {/* Empty spacer to keep name perfectly centered since info button is gone */}
         <div className="w-10"></div>
       </div>
 
       {/* Messages Area */}
-      <div className="flex-grow overflow-y-auto px-4 pt-32 pb-6 flex flex-col-reverse space-y-reverse space-y-1">
+      <div className="flex-grow overflow-y-auto px-4 pt-32 pb-6 flex flex-col-reverse space-y-reverse space-y-1 overflow-x-hidden">
         <div ref={scrollRef} />
         
         {messages.filter((msg: any) => msg.text?.trim()).map((msg: any, idx: number) => {
           const isMine = msg.senderId === myId;
-          const isLatest = idx === 0;
+          // Status only shows for the very last message sent by ME
+          const isLastMessage = idx === 0; 
+          
+          const timeString = msg.timestamp?.toDate().toLocaleTimeString([], { 
+            hour: 'numeric', 
+            minute: '2-digit',
+            hour12: true 
+          });
 
           return (
-            <div key={msg.id} className="flex flex-col w-full">
+            <div key={msg.id} className="group relative flex flex-col w-full transition-transform duration-300 active:-translate-x-12 touch-pan-y">
               <div className={`flex w-full ${isMine ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[75%] px-4 py-2.5 rounded-[22px] text-[17px] font-normal leading-tight ${
                   isMine 
@@ -51,10 +56,16 @@ export default function ChatView({
                 }`}>
                   {msg.text}
                 </div>
+
+                {/* HIDDEN TIMESTAMP (Shows on swipe/active) */}
+                <div className="absolute -right-16 self-center text-[10px] font-bold text-zinc-500 uppercase tracking-tighter w-12 opacity-0 group-active:opacity-100 transition-opacity duration-300">
+                  {timeString}
+                </div>
               </div>
 
-              {isMine && isLatest && (
-                <div className="text-[11px] text-zinc-500 font-medium mt-1 pr-1 text-right">
+              {/* READ RECEIPTS */}
+              {isMine && isLastMessage && (
+                <div className="text-[11px] text-zinc-500 font-medium mt-1 pr-1 text-right animate-in fade-in duration-500">
                   {msg.seen ? 'Read' : 'Delivered'}
                 </div>
               )}
