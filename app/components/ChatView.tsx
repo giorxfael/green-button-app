@@ -15,14 +15,12 @@ export default function ChatView({
   
   const otherPhone = myId === 'iPhone1' ? 'iPhone 2' : 'iPhone 1';
 
-  // Handle Global Swipe Logic
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStart.current = e.targetTouches[0].clientX;
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     const touchEnd = e.targetTouches[0].clientX;
-    // If dragging left more than 30px, show all timestamps
     if (touchStart.current - touchEnd > 30) {
       setIsSwiping(true);
     } else {
@@ -86,7 +84,7 @@ export default function ChatView({
                   {msg.text}
                 </div>
 
-                {/* TIMESTAMPS (Slides in for ALL messages) */}
+                {/* TIMESTAMPS (Slides in for ALL) */}
                 <div className={`absolute -right-16 self-center text-[10px] font-bold text-zinc-600 uppercase tracking-tighter w-12 transition-opacity duration-200 ${
                   isSwiping ? 'opacity-100' : 'opacity-0'
                 }`}>
@@ -94,12 +92,12 @@ export default function ChatView({
                 </div>
               </div>
 
-              {/* READ RECEIPTS */}
+              {/* DETAILED READ RECEIPTS */}
               {isMine && isLastMessage && (
-                <div className={`text-[11px] text-zinc-500 font-medium mt-1 pr-1 text-right transition-opacity ${
+                <div className={`text-[11px] text-zinc-500 font-medium mt-1 pr-1 text-right transition-opacity duration-300 ${
                   isSwiping ? 'opacity-0' : 'opacity-100'
                 }`}>
-                  {msg.seen ? 'Read' : 'Delivered'}
+                  {msg.seen ? `Read ${timeString}` : 'Delivered'}
                 </div>
               )}
             </div>
