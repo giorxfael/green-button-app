@@ -80,6 +80,7 @@ export default function PingView({
         <span className="text-2xl drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">{streak.emoji}</span>
       </div>
 
+      {/* HISTORY WITH SWIPE TO DELETE */}
       <div className="w-full max-w-sm mx-auto bg-zinc-900/40 rounded-3xl overflow-hidden border border-white/5 text-left mb-10">
         <h2 className="text-[10px] uppercase text-gray-600 p-6 pb-4 font-black italic tracking-widest">History</h2>
         <div className="divide-y divide-white/5">
@@ -87,9 +88,12 @@ export default function PingView({
             <div 
               key={item.id} 
               className="relative overflow-hidden bg-transparent touch-pan-x"
+              onTouchStart={handleTouchStart}
+              onTouchMove={(e) => handleTouchMove(e, item.id)}
             >
+              {/* THE CONTENT - Moves left when swipedId matches */}
               <div 
-                className={`flex justify-between items-start p-6 text-xs transition-transform duration-300 ${swipedId === item.id ? '-translate-x-20' : 'translate-x-0'}`}
+                className={`flex justify-between items-start p-6 text-xs transition-transform duration-300 ease-out ${swipedId === item.id ? '-translate-x-20' : 'translate-x-0'}`}
               >
                 <div className="flex flex-col">
                   <span className={`text-[8px] font-black uppercase italic ${item.status === 'CANCELED' ? 'text-red-500' : 'text-blue-500'}`}>
@@ -102,9 +106,11 @@ export default function PingView({
                   <p className={`font-black uppercase text-[10px] italic ${item.status === 'yes' ? 'text-green-500' : item.status === 'no' || item.status === 'CANCELED' ? 'text-red-500' : 'text-blue-400'}`}>{item.status}</p>
                 </div>
               </div>
+              
+              {/* THE HIDDEN DELETE BUTTON */}
               <button 
                 onClick={() => deleteHistoryItem(item.id)}
-                className={`absolute top-0 right-0 h-full w-20 bg-red-600 text-white font-black italic text-[10px] uppercase transition-opacity duration-300 ${swipedId === item.id ? 'opacity-100' : 'opacity-0'}`}
+                className={`absolute top-0 right-0 h-full w-20 bg-red-600 text-white font-black italic text-[10px] uppercase transition-all duration-300 ${swipedId === item.id ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-full'}`}
               >
                 Delete
               </button>
