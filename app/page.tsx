@@ -38,7 +38,7 @@ export default function Home() {
     document.getElementsByTagName('head')[0].appendChild(meta);
   }, []);
 
-  // 1. PING LISTENER
+  // 1. PING LISTENER - Fixed to clear state when doc is deleted
   useEffect(() => {
     if (!mounted || !myId) return;
     const unsubscribe = onSnapshot(doc(db, "notifications", "current"), (docSnap) => {
@@ -46,18 +46,19 @@ export default function Home() {
         const data = docSnap.data();
         setAppState(data);
         if (data.status === 'pending' && data.sender === myId) {
-          setStatus('Waiting... ⏳'); setStatusColor('text-yellow-400');
-        } else { setStatus(''); }
-      } else {
-        if (appState?.status === 'pending') {
-          setStatus('CANCELED 🚫'); setStatusColor('text-red-500');
-          setTimeout(() => { setStatus(''); setStatusColor('text-yellow-400'); }, 3000);
+          setStatus('Waiting... ⏳'); 
+          setStatusColor('text-yellow-400');
+        } else { 
+          setStatus(''); 
         }
+      } else {
+        // This resets the view to the PUSH button instantly
         setAppState(null);
+        setStatus('');
       }
     });
     return () => unsubscribe();
-  }, [mounted, myId, appState]);
+  }, [mounted, myId]);
 
   // 2. CHAT LISTENER
   useEffect(() => {
@@ -81,15 +82,22 @@ export default function Home() {
     return onSnapshot(q, (snapshot) => setHistory(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
   }, [mounted]);
 
+  // 5. STREAK LOGIC - Fixed negative calculation bug
   const streak = (() => {
     if (history.length === 0) return { time: "0h 0m", emoji: "🆕" };
-    const lastPing = history.find(item => item.timestamp)?.timestamp?.toDate();
+    // Find the last COMPLETED ping (not the one currently pending)
+    const lastPing = history.find(item => item.status !== 'pending' && item.status !== 'CANCELED')?.timestamp?.toDate();
     if (!lastPing) return { time: "0h 0m", emoji: "🐣" };
-    const diffInMs = new Date().getTime() - lastPing.getTime();
+    
+    const diffInMs = Math.max(0, new Date().getTime() - lastPing.getTime());
     const hours = Math.floor(diffInMs / (1000 * 60 * 60));
     const minutes = Math.floor((diffInMs / (1000 * 60)) % 60);
     const days = Math.floor(hours / 24);
-    return { time: days > 0 ? `${days}d ${hours % 24}h` : `${hours}h ${minutes}m`, emoji: hours >= 1 ? "🧘" : "🤫" };
+    
+    return { 
+      time: days > 0 ? `${days}d ${hours % 24}h` : `${hours}h ${minutes}m`, 
+      emoji: hours >= 1 ? "🧘" : "🤫" 
+    };
   })();
 
   const sendPing = async () => {
@@ -102,6 +110,9 @@ export default function Home() {
     const snap = await getDocs(q);
     if (!snap.empty) await updateDoc(doc(db, "history", snap.docs[0].id), { status: "CANCELED" });
     await deleteDoc(doc(db, "notifications", "current"));
+    // Force local reset
+    setAppState(null);
+    setStatus('');
   };
 
   const deleteHistoryItem = async (id: string) => {
@@ -111,13 +122,15 @@ export default function Home() {
 
   const sendChatMessage = async () => {
     if (!chatInput.trim()) return;
-    const text = chatInput; setChatInput('');
+    const text = chatInput; 
+    setChatInput('');
     await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, senderId: myId }) });
   };
 
   const handleResponse = async (answer: 'yes' | 'no' | 'text') => {
     await fetch('/api/respond', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ answer: answer === 'text' ? 'replied' : answer, textResponse: answer === 'text' ? replyMsg : null }) });
     setReplyMsg('');
+    setAppState(null); // Clean reset after responding
   };
 
   const register = async (id: 'iPhone1' | 'iPhone2') => {
@@ -146,7 +159,7 @@ export default function Home() {
         input { font-size: 16px !important; }
       `}</style>
 
-      {/* FLOATING CHAT BUBBLE (Only shown in Ping View) */}
+      {/* FLOATING CHAT BUBBLE */}
       {!isChatOpen && (
         <div className="absolute top-0 left-0 w-full z-50 pt-10 px-4 pointer-events-none">
             <button onClick={() => setIsChatOpen(true)} className="pointer-events-auto opacity-100 transition-all active:scale-90 flex items-center relative">
@@ -170,10 +183,20 @@ export default function Home() {
       ) : (
         <PingView 
           isIBeingPinged={appState?.status === 'pending' && appState?.sender !== myId}
-          appState={appState} replyMsg={replyMsg} setReplyMsg={setReplyMsg} handleResponse={handleResponse}
+          appState={appState} 
+          replyMsg={replyMsg} 
+          setReplyMsg={setReplyMsg} 
+          handleResponse={handleResponse}
           amIWaiting={appState?.status === 'pending' && appState?.sender === myId}
-          customMsg={customMsg} setCustomMsg={setCustomMsg} sendPing={sendPing} cancelPing={cancelPing}
-          status={status} statusColor={statusColor} streak={streak} history={history} swipedId={swipedId}
+          customMsg={customMsg} 
+          setCustomMsg={setCustomMsg} 
+          sendPing={sendPing} 
+          cancelPing={cancelPing}
+          status={status} 
+          statusColor={statusColor} 
+          streak={streak} 
+          history={history} 
+          swipedId={swipedId}
           handleTouchStart={(e: any) => touchStart.current = e.targetTouches[0].clientX}
           handleTouchMove={(e: any, id: string) => {
             const touchEnd = e.targetTouches[0].clientX;
