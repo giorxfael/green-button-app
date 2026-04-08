@@ -19,7 +19,7 @@ export default function ChatView({
   };
   const handleTouchEnd = () => setIsSwiping(false);
 
-  // NEW: Toggle Reaction Logic
+  // Toggle Reaction Logic
   const handleDoubleClick = async (msgId: string, currentReaction: string) => {
     const msgRef = doc(db, "messages", msgId);
     await updateDoc(msgRef, {
@@ -88,10 +88,10 @@ export default function ChatView({
                 >
                   {msg.text}
 
-                  {/* REACTION HEART BADGE */}
+                  {/* REACTION HEART BADGE - UPDATED: Bigger */}
                   {msg.reaction === '❤️' && (
-                    <div className={`absolute -top-2 ${isMine ? '-left-2' : '-right-2'} bg-zinc-900 border-2 border-black rounded-full w-6 h-6 flex items-center justify-center text-[11px] shadow-lg animate-in zoom-in duration-200`}>
-                      ❤️
+                    <div className={`absolute -top-2.5 ${isMine ? '-left-2.5' : '-right-2.5'} bg-zinc-900 border-2 border-black rounded-full w-7 h-7 flex items-center justify-center shadow-lg animate-in zoom-in duration-200`}>
+                      <span className="text-[13px] leading-none mt-[1px]">❤️</span>
                     </div>
                   )}
                 </div>
