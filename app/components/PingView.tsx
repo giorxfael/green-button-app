@@ -1,4 +1,5 @@
 'use client';
+import { useState } from 'react';
 
 export default function PingView({ 
   isIBeingPinged, 
@@ -18,8 +19,11 @@ export default function PingView({
   swipedId, 
   handleTouchStart, 
   handleTouchMove, 
-  deleteHistoryItem 
+  deleteHistoryItem,
+  clearHistory // Ensure this is passed from page.tsx
 }: any) {
+  const [showConfirm, setShowConfirm] = useState(false);
+
   return (
     <div className="flex flex-col px-6 pb-20 pt-16">
       <div className="flex flex-col items-center justify-center py-20 min-h-[60vh]">
@@ -80,9 +84,25 @@ export default function PingView({
         <span className="text-2xl drop-shadow-[0_0_80px_rgba(255,255,255,0.2)]">{streak.emoji}</span>
       </div>
 
-      {/* HISTORY WITH UPDATED LOGIC */}
+      {/* HISTORY HEADER WITH CLEAR ALL WARNING */}
+      <div className="w-full max-w-sm mx-auto flex items-center justify-between px-6 mb-4">
+        <h2 className="text-[10px] uppercase text-gray-600 font-black italic tracking-widest">History</h2>
+        {history.length > 0 && (
+          <div className="flex items-center gap-3">
+            {showConfirm ? (
+              <>
+                <button onClick={() => { clearHistory(); setShowConfirm(false); }} className="text-[8px] uppercase text-red-500 font-[1000] italic">Confirm?</button>
+                <button onClick={() => setShowConfirm(false)} className="text-[8px] uppercase text-zinc-500 font-black italic">Cancel</button>
+              </>
+            ) : (
+              <button onClick={() => setShowConfirm(true)} className="text-[8px] uppercase text-zinc-700 font-black italic active:text-red-500 transition-colors">Clear All</button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* HISTORY WITH UPDATED HIERARCHY */}
       <div className="w-full max-w-sm mx-auto bg-zinc-900/40 rounded-3xl overflow-hidden border border-white/5 text-left mb-10">
-        <h2 className="text-[10px] uppercase text-gray-600 p-6 pb-4 font-black italic tracking-widest">History</h2>
         <div className="divide-y divide-white/5">
           {history.map((item: any) => {
             const isReplied = item.status === 'replied' || !!item.textResponse;
@@ -98,7 +118,7 @@ export default function PingView({
                   className={`flex justify-between items-start p-6 text-xs transition-transform duration-300 ease-out ${swipedId === item.id ? '-translate-x-20' : 'translate-x-0'}`}
                 >
                   <div className="flex flex-col">
-                    <span className={`text-[8px] font-black uppercase italic ${item.status === 'CANCELED' ? 'text-red-500' : isReplied ? 'text-green-500' : 'text-blue-500'}`}>
+                    <span className={`text-[8px] font-[1000] uppercase italic ${item.status === 'CANCELED' ? 'text-red-500' : isReplied ? 'text-green-500' : 'text-blue-500'}`}>
                       {isReplied ? "REPLIED" : (item.status !== 'pending' && item.status !== 'CANCELED' ? "PICKED" : item.status)}
                     </span>
                     <p className="text-gray-400 font-mono mt-1">{item.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
@@ -106,9 +126,7 @@ export default function PingView({
                   
                   <div className="text-right max-w-[65%]">
                     {/* ORIGINAL QUESTION */}
-                    <p className="text-white italic mb-1 font-medium">
-                      "{item.message}"
-                    </p>
+                    <p className="text-white italic mb-1 font-medium">"{item.message}"</p>
                     {/* ACTUAL REPLY */}
                     <p className={`font-black uppercase text-[10px] italic ${item.status === 'yes' ? 'text-green-500' : item.status === 'no' || item.status === 'CANCELED' ? 'text-red-500' : 'text-blue-400'}`}>
                       {item.textResponse ? item.textResponse : item.status}

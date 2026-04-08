@@ -146,6 +146,20 @@ export default function Home() {
     return { time: days > 0 ? `${days}d ${hours % 24}h` : `${hours}h ${minutes}m`, emoji: hours >= 1 ? "🧘" : "🤫" };
   })();
 
+  const clearHistory = async () => {
+    try {
+      const q = query(collection(db, "history"));
+      const snap = await getDocs(q);
+      const deletePromises = snap.docs.map(document => 
+        deleteDoc(doc(db, "history", document.id))
+      );
+      await Promise.all(deletePromises);
+      setHistory([]); 
+    } catch (error) {
+      console.error("Error clearing history:", error);
+    }
+  };
+
   const sendPing = async () => {
     await fetch('/api/notify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: customMsg || "🔔", senderId: myId }) });
     setCustomMsg('');
@@ -232,6 +246,7 @@ export default function Home() {
             else if (touchEnd - touchStart.current > 50) setSwipedId(null);
           }}
           deleteHistoryItem={deleteHistoryItem}
+          clearHistory={clearHistory}
         />
       )}
     </div>
