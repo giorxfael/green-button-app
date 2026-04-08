@@ -21,13 +21,14 @@ export async function POST(request: Request) {
     const data = snap.data();
 
     if (data?.historyId) {
-      const updateData = {
+      const updateData: any = {
         status: textResponse ? "replied" : answer,
-        message: textResponse || data.message, // Keep original message or show reply
+        // NEW: Save the actual reply text in its own field
+        textResponse: textResponse || null,
+        // IMPORTANT: We no longer update 'message' here so the original question stays.
         respondedAt: admin.firestore.FieldValue.serverTimestamp(),
       };
 
-      // Update both the current lock and the history log
       await db.collection("history").doc(data.historyId).update(updateData);
       await notificationRef.update(updateData);
     }

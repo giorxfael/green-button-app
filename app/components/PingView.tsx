@@ -80,12 +80,11 @@ export default function PingView({
         <span className="text-2xl drop-shadow-[0_0_80px_rgba(255,255,255,0.2)]">{streak.emoji}</span>
       </div>
 
-      {/* HISTORY WITH SWIPE TO DELETE */}
+      {/* HISTORY WITH UPDATED LOGIC */}
       <div className="w-full max-w-sm mx-auto bg-zinc-900/40 rounded-3xl overflow-hidden border border-white/5 text-left mb-10">
         <h2 className="text-[10px] uppercase text-gray-600 p-6 pb-4 font-black italic tracking-widest">History</h2>
         <div className="divide-y divide-white/5">
           {history.map((item: any) => {
-            // Check if it's a text reply
             const isReplied = item.status === 'replied' || !!item.textResponse;
 
             return (
@@ -99,17 +98,20 @@ export default function PingView({
                   className={`flex justify-between items-start p-6 text-xs transition-transform duration-300 ease-out ${swipedId === item.id ? '-translate-x-20' : 'translate-x-0'}`}
                 >
                   <div className="flex flex-col">
-                    <span className={`text-[8px] font-[1000] uppercase italic ${item.status === 'CANCELED' ? 'text-red-500' : isReplied ? 'text-green-500' : 'text-blue-500'}`}>
+                    <span className={`text-[8px] font-black uppercase italic ${item.status === 'CANCELED' ? 'text-red-500' : isReplied ? 'text-green-500' : 'text-blue-500'}`}>
                       {isReplied ? "REPLIED" : (item.status !== 'pending' && item.status !== 'CANCELED' ? "PICKED" : item.status)}
                     </span>
-                    <p className="text-gray-400 font-mono">{item.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                    <p className="text-gray-400 font-mono mt-1">{item.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                   </div>
-                  <div className="text-right max-w-[60%]">
-                    <p className="text-zinc-400 italic mb-1">"{item.message}"</p>
-                    
-                    {/* Show actual reply text if it exists, otherwise show status */}
+                  
+                  <div className="text-right max-w-[65%]">
+                    {/* ORIGINAL QUESTION */}
+                    <p className="text-white italic mb-1 font-medium">
+                      "{item.message}"
+                    </p>
+                    {/* ACTUAL REPLY */}
                     <p className={`font-black uppercase text-[10px] italic ${item.status === 'yes' ? 'text-green-500' : item.status === 'no' || item.status === 'CANCELED' ? 'text-red-500' : 'text-blue-400'}`}>
-                      {isReplied && item.textResponse ? item.textResponse : item.status}
+                      {item.textResponse ? item.textResponse : item.status}
                     </p>
                   </div>
                 </div>
