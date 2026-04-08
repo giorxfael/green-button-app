@@ -19,14 +19,29 @@ export default function ChatView({
   };
   const handleTouchEnd = () => setIsSwiping(false);
 
-  // Toggle Reaction Logic
-  const handleDoubleClick = async (msgId: string, currentReaction: string) => {
-    const msgRef = doc(db, "messages", msgId);
-    await updateDoc(msgRef, {
-      reaction: currentReaction === '❤️' ? null : '❤️'
-    });
-    // Add haptic buzz
-    if (window.navigator.vibrate) window.navigator.vibrate(10);
+  // Toggle Reaction Logic with Ownership Check
+  const handleDoubleClick = async (msg: any) => {
+    const msgRef = doc(db, "messages", msg.id);
+
+    if (msg.reaction === '❤️') {
+      // ONLY allow removal if the current user is the one who reacted
+      if (msg.reactorId === myId) {
+        await updateDoc(msgRef, {
+          reaction: null,
+          reactorId: null
+        });
+        if (window.navigator.vibrate) window.navigator.vibrate(10);
+      } else {
+        console.log("Permission denied: You didn't heart this!");
+      }
+    } else {
+      // Add heart and claim ownership
+      await updateDoc(msgRef, {
+        reaction: '❤️',
+        reactorId: myId
+      });
+      if (window.navigator.vibrate) window.navigator.vibrate(10);
+    }
   };
 
   return (
@@ -55,7 +70,7 @@ export default function ChatView({
         <div className="w-10"></div>
       </div>
 
-      {/* Messages */}
+      {/* Messages Area */}
       <div className="flex-grow overflow-y-auto px-4 pt-32 pb-6 flex flex-col-reverse space-y-reverse space-y-1 overflow-x-hidden touch-pan-y"
         onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
         <div ref={scrollRef} />
@@ -79,16 +94,16 @@ export default function ChatView({
             <div key={msg.id} className={`relative flex flex-col w-full transition-transform duration-300 ease-out ${isSwiping ? '-translate-x-16' : 'translate-x-0'}`}>
               <div className={`flex w-full ${isMine ? 'justify-end' : 'justify-start'}`}>
                 
-                {/* BUBBLE WITH DOUBLE-TAP */}
+                {/* BUBBLE WITH DOUBLE-TAP (Passing full msg object) */}
                 <div 
-                  onDoubleClick={() => handleDoubleClick(msg.id, msg.reaction)}
+                  onDoubleClick={() => handleDoubleClick(msg)}
                   className={`relative max-w-[75%] px-4 py-2.5 rounded-[22px] text-[17px] font-normal leading-tight transition-transform active:scale-[0.98] ${
                     isMine ? 'bg-[#007aff] text-white rounded-br-none' : 'bg-[#1c1c1e] text-white rounded-bl-none'
                   }`}
                 >
                   {msg.text}
 
-                  {/* REACTION HEART BADGE - UPDATED: Bigger */}
+                  {/* REACTION HEART BADGE */}
                   {msg.reaction === '❤️' && (
                     <div className={`absolute -top-2.5 ${isMine ? '-left-2.5' : '-right-2.5'} bg-zinc-900 border-2 border-black rounded-full w-7 h-7 flex items-center justify-center shadow-lg animate-in zoom-in duration-200`}>
                       <span className="text-[13px] leading-none mt-[1px]">❤️</span>
