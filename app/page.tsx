@@ -19,9 +19,9 @@ export default function Home() {
   const [replyMsg, setReplyMsg] = useState(''); 
   const [history, setHistory] = useState<any[]>([]);
   const [mounted, setMounted] = useState(false);
-  const [isOtherTyping, setIsOtherTyping] = useState(false);
   
-  // New Presence States
+  // Presence & Typing States
+  const [isOtherTyping, setIsOtherTyping] = useState(false);
   const [isOtherOnline, setIsOtherOnline] = useState(false);
   const [lastSeenString, setLastSeenString] = useState('');
 
@@ -31,6 +31,20 @@ export default function Home() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [messages, setMessages] = useState<any[]>([]);
   const [chatInput, setChatInput] = useState('');
+
+  // HELPER: Calculates relative time (e.g., "5m ago")
+  const formatLastSeen = (timestamp: any) => {
+    if (!timestamp) return '';
+    const date = timestamp.toDate();
+    const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+    
+    if (seconds < 60) return 'Just now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    return date.toLocaleDateString();
+  };
   
   useEffect(() => {
     setMounted(true);
@@ -43,23 +57,17 @@ export default function Home() {
     document.getElementsByTagName('head')[0].appendChild(meta);
   }, []);
 
-  // ONLINE/OFFLINE LOGIC
+  // ONLINE/OFFLINE HEARTBEAT
   useEffect(() => {
     if (!mounted || !myId) return;
-
     const setOnlineStatus = async (isOnline: boolean) => {
       await setDoc(doc(db, "presence", myId), {
         online: isOnline,
         lastSeen: Timestamp.now()
       }, { merge: true });
     };
-
     setOnlineStatus(true);
-
-    const handleVisibilityChange = () => {
-      setOnlineStatus(document.visibilityState === 'visible');
-    };
-
+    const handleVisibilityChange = () => setOnlineStatus(document.visibilityState === 'visible');
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
       setOnlineStatus(false);
@@ -67,7 +75,7 @@ export default function Home() {
     };
   }, [mounted, myId]);
 
-  // TYPING & PRESENCE LISTENER
+  // PRESENCE & TYPING LISTENER
   useEffect(() => {
     if (!mounted || !myId) return;
     const otherId = myId === 'iPhone1' ? 'iPhone2' : 'iPhone1';
@@ -76,11 +84,7 @@ export default function Home() {
         const data = docSnap.data();
         setIsOtherTyping(data.typing || false);
         setIsOtherOnline(data.online || false);
-        
-        if (data.lastSeen) {
-          const time = data.lastSeen.toDate().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-          setLastSeenString(time);
-        }
+        setLastSeenString(formatLastSeen(data.lastSeen));
       }
     });
     return () => unsub();
@@ -94,7 +98,7 @@ export default function Home() {
     }, { merge: true });
   };
 
-  // 1. PING LISTENER
+  // PING LISTENER
   useEffect(() => {
     if (!mounted || !myId) return;
     const unsubscribe = onSnapshot(doc(db, "notifications", "current"), (docSnap) => {
@@ -105,21 +109,19 @@ export default function Home() {
           setStatus('Waiting... ⏳'); setStatusColor('text-yellow-400');
         } else { setStatus(''); }
       } else {
-        setAppState(null);
-        setStatus('');
+        setAppState(null); setStatus('');
       }
     });
     return () => unsubscribe();
   }, [mounted, myId]);
 
-  // 2. CHAT LISTENER
+  // CHAT & HISTORY LOGIC
   useEffect(() => {
     if (!mounted) return;
     const q = query(collection(db, "messages"), where("timestamp", ">=", Timestamp.fromDate(new Date(Date.now() - 86400000))), orderBy("timestamp", "desc"));
     return onSnapshot(q, (snapshot) => setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
   }, [mounted]);
 
-  // 3. SEEN LOGIC
   useEffect(() => {
     if (!mounted || !isChatOpen || !messages.length || !myId) return;
     messages.filter(msg => msg.senderId !== myId && !msg.seen).forEach(async (msg) => {
@@ -127,14 +129,12 @@ export default function Home() {
     });
   }, [isChatOpen, messages, myId, mounted]);
 
-  // 4. HISTORY LISTENER
   useEffect(() => {
     if (!mounted) return;
     const q = query(collection(db, "history"), orderBy("timestamp", "desc"), limit(5));
     return onSnapshot(q, (snapshot) => setHistory(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
   }, [mounted]);
 
-  // 5. STREAK LOGIC
   const streak = (() => {
     if (history.length === 0) return { time: "0h 0m", emoji: "🆕" };
     const lastPing = history.find(item => item.status !== 'pending' && item.status !== 'CANCELED')?.timestamp?.toDate();
@@ -166,8 +166,7 @@ export default function Home() {
 
   const sendChatMessage = async () => {
     if (!chatInput.trim()) return;
-    const text = chatInput; 
-    setChatInput('');
+    const text = chatInput; setChatInput('');
     handleTyping(false);
     await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, senderId: myId }) });
   };
@@ -202,7 +201,6 @@ export default function Home() {
         * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
         input { font-size: 16px !important; }
       `}</style>
-
       {!isChatOpen && (
         <div className="absolute top-0 left-0 w-full z-50 pt-10 px-4 pointer-events-none">
             <button onClick={() => setIsChatOpen(true)} className="pointer-events-auto opacity-100 transition-all active:scale-90 flex items-center relative">
@@ -213,19 +211,12 @@ export default function Home() {
             </button>
         </div>
       )}
-
       {isChatOpen ? (
         <ChatView 
-          messages={messages} 
-          myId={myId} 
-          chatInput={chatInput} 
-          setChatInput={setChatInput} 
-          sendChatMessage={sendChatMessage} 
-          setIsChatOpen={setIsChatOpen} 
-          isOtherTyping={isOtherTyping}
-          onTyping={handleTyping}
-          isOtherOnline={isOtherOnline}
-          lastSeenString={lastSeenString}
+          messages={messages} myId={myId} chatInput={chatInput} setChatInput={setChatInput} 
+          sendChatMessage={sendChatMessage} setIsChatOpen={setIsChatOpen} 
+          isOtherTyping={isOtherTyping} onTyping={handleTyping}
+          isOtherOnline={isOtherOnline} lastSeenString={lastSeenString}
         />
       ) : (
         <PingView 

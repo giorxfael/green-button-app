@@ -2,82 +2,51 @@
 import { useState, useRef } from 'react';
 
 export default function ChatView({ 
-  messages, 
-  myId, 
-  chatInput, 
-  setChatInput, 
-  sendChatMessage,
-  setIsChatOpen,
-  isOtherTyping,
-  onTyping,
-  isOtherOnline,
-  lastSeenString
+  messages, myId, chatInput, setChatInput, sendChatMessage, setIsChatOpen,
+  isOtherTyping, onTyping, isOtherOnline, lastSeenString
 }: any) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isSwiping, setIsSwiping] = useState(false);
   const touchStart = useRef(0);
-  
   const otherPhone = myId === 'iPhone1' ? 'iPhone 2' : 'iPhone 1';
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStart.current = e.targetTouches[0].clientX;
-  };
-
+  const handleTouchStart = (e: React.TouchEvent) => touchStart.current = e.targetTouches[0].clientX;
   const handleTouchMove = (e: React.TouchEvent) => {
     const touchEnd = e.targetTouches[0].clientX;
-    if (touchStart.current - touchEnd > 30) {
-      setIsSwiping(true);
-    } else {
-      setIsSwiping(false);
-    }
+    setIsSwiping(touchStart.current - touchEnd > 30);
   };
-
-  const handleTouchEnd = () => {
-    setIsSwiping(false);
-  };
+  const handleTouchEnd = () => setIsSwiping(false);
 
   return (
     <div className="flex flex-col h-[100dvh] overflow-hidden bg-black animate-in fade-in duration-300">
       
-      {/* iMessage Top Banner */}
+      {/* Top Banner with Presence Status */}
       <div className="fixed top-0 left-0 w-full z-50 bg-[#121212]/85 backdrop-blur-xl border-b border-white/5 pt-12 pb-5 px-4 flex items-center justify-between">
-        <button 
-          onClick={() => setIsChatOpen(false)} 
-          className="flex items-center text-[#007aff] active:opacity-50 transition-opacity"
-        >
+        <button onClick={() => setIsChatOpen(false)} className="flex items-center text-[#007aff] active:opacity-50 transition-opacity">
           <span className="text-4xl leading-none -mt-1 font-light pr-1">‹</span>
         </button>
-        
-        {/* Center Name & Presence Info */}
         <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center">
           <span className="text-[13px] font-semibold text-white tracking-wide">{otherPhone}</span>
           <div className="flex items-center gap-1 mt-0.5">
             {isOtherOnline ? (
               <>
                 <div className="w-1 h-1 bg-green-500 rounded-full animate-pulse" />
-                <span className="text-[9px] font-bold text-green-500 uppercase tracking-widest">Online</span>
+                <span className="text-[9px] font-bold text-green-500 uppercase tracking-widest">Active now</span>
               </>
             ) : (
               <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest">
-                {lastSeenString ? `Last seen ${lastSeenString}` : 'Offline'}
+                {lastSeenString ? `Active ${lastSeenString}` : 'Offline'}
               </span>
             )}
           </div>
         </div>
-        
         <div className="w-10"></div>
       </div>
 
-      {/* Messages Area */}
-      <div 
-        className="flex-grow overflow-y-auto px-4 pt-32 pb-6 flex flex-col-reverse space-y-reverse space-y-1 overflow-x-hidden touch-pan-y"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
+      <div className="flex-grow overflow-y-auto px-4 pt-32 pb-6 flex flex-col-reverse space-y-reverse space-y-1 overflow-x-hidden touch-pan-y"
+        onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
         <div ref={scrollRef} />
-
-        {/* TYPING INDICATOR */}
+        
         {isOtherTyping && (
           <div className="flex justify-start w-full mb-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
             <div className="bg-[#1c1c1e] px-4 py-3 rounded-[22px] rounded-bl-none flex gap-1 items-center">
@@ -87,76 +56,35 @@ export default function ChatView({
             </div>
           </div>
         )}
-        
+
         {messages.filter((msg: any) => msg.text?.trim()).map((msg: any, idx: number) => {
           const isMine = msg.senderId === myId;
           const isLastMessage = idx === 0; 
+          const timeString = msg.timestamp?.toDate().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
           
-          const timeString = msg.timestamp?.toDate().toLocaleTimeString([], { 
-            hour: 'numeric', 
-            minute: '2-digit',
-            hour12: true 
-          });
-
           return (
-            <div 
-              key={msg.id} 
-              className={`relative flex flex-col w-full transition-transform duration-300 ease-out ${
-                isSwiping ? '-translate-x-16' : 'translate-x-0'
-              }`}
-            >
+            <div key={msg.id} className={`relative flex flex-col w-full transition-transform duration-300 ease-out ${isSwiping ? '-translate-x-16' : 'translate-x-0'}`}>
               <div className={`flex w-full ${isMine ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[75%] px-4 py-2.5 rounded-[22px] text-[17px] font-normal leading-tight ${
-                  isMine 
-                    ? 'bg-[#007aff] text-white rounded-br-none' 
-                    : 'bg-[#1c1c1e] text-white rounded-bl-none'
-                }`}>
-                  {msg.text}
-                </div>
-
-                <div className={`absolute -right-16 self-center text-[10px] font-bold text-zinc-600 uppercase tracking-tighter w-12 transition-opacity duration-200 ${
-                  isSwiping ? 'opacity-100' : 'opacity-0'
-                }`}>
-                  {timeString}
-                </div>
+                <div className={`max-w-[75%] px-4 py-2.5 rounded-[22px] text-[17px] font-normal leading-tight ${isMine ? 'bg-[#007aff] text-white rounded-br-none' : 'bg-[#1c1c1e] text-white rounded-bl-none'}`}>{msg.text}</div>
+                <div className={`absolute -right-16 self-center text-[10px] font-bold text-zinc-600 uppercase tracking-tighter w-12 transition-opacity duration-200 ${isSwiping ? 'opacity-100' : 'opacity-0'}`}>{timeString}</div>
               </div>
-
               {isMine && isLastMessage && (
-                <div className={`text-[11px] text-zinc-500 font-medium mt-1 pr-1 text-right transition-opacity duration-300 ${
-                  isSwiping ? 'opacity-0' : 'opacity-100'
-                }`}>
-                  {msg.seen ? `Read ${timeString}` : 'Delivered'}
-                </div>
+                <div className={`text-[11px] text-zinc-500 font-medium mt-1 pr-1 text-right transition-opacity duration-300 ${isSwiping ? 'opacity-0' : 'opacity-100'}`}>{msg.seen ? `Read ${timeString}` : 'Delivered'}</div>
               )}
             </div>
           );
         })}
       </div>
 
-      {/* Input Bar */}
       <div className="w-full bg-black px-2 pb-10 pt-2">
         <div className="relative flex items-center bg-[#1c1c1e] rounded-full border border-white/5 px-4 py-1.5">
-          <input 
-            type="text" 
-            placeholder="Message" 
-            value={chatInput} 
-            onFocus={() => onTyping(true)}
-            onBlur={() => onTyping(false)}
-            onChange={(e) => {
-              setChatInput(e.target.value);
-              onTyping(e.target.value.length > 0);
-            }} 
+          <input type="text" placeholder="Message" value={chatInput} onFocus={() => onTyping(true)} onBlur={() => onTyping(false)}
+            onChange={(e) => { setChatInput(e.target.value); onTyping(e.target.value.length > 0); }}
             onKeyDown={(e) => e.key === 'Enter' && sendChatMessage()}
-            className="w-full bg-transparent py-2 text-[16px] focus:outline-none placeholder:text-zinc-500 text-white"
-            autoComplete="off"
-          />
-          
+            className="w-full bg-transparent py-2 text-[16px] focus:outline-none placeholder:text-zinc-500 text-white" autoComplete="off" />
           <div className="flex items-center gap-3 ml-2">
             {chatInput.trim() ? (
-              <button 
-                onClick={sendChatMessage}
-                className="w-8 h-8 rounded-full bg-[#007aff] flex items-center justify-center active:scale-90 transition-all"
-              >
+              <button onClick={sendChatMessage} className="w-8 h-8 rounded-full bg-[#007aff] flex items-center justify-center active:scale-90 transition-all">
                 <span className="text-white text-xl font-bold">↑</span>
               </button>
             ) : (
