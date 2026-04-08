@@ -7,7 +7,9 @@ export default function ChatView({
   chatInput, 
   setChatInput, 
   sendChatMessage,
-  setIsChatOpen 
+  setIsChatOpen,
+  isOtherTyping,
+  onTyping
 }: any) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isSwiping, setIsSwiping] = useState(false);
@@ -57,6 +59,17 @@ export default function ChatView({
         onTouchEnd={handleTouchEnd}
       >
         <div ref={scrollRef} />
+
+        {/* TYPING INDICATOR */}
+        {isOtherTyping && (
+          <div className="flex justify-start w-full mb-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div className="bg-[#1c1c1e] px-4 py-3 rounded-[22px] rounded-bl-none flex gap-1 items-center">
+              <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+              <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+              <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce"></span>
+            </div>
+          </div>
+        )}
         
         {messages.filter((msg: any) => msg.text?.trim()).map((msg: any, idx: number) => {
           const isMine = msg.senderId === myId;
@@ -84,7 +97,6 @@ export default function ChatView({
                   {msg.text}
                 </div>
 
-                {/* TIMESTAMPS (Slides in for ALL) */}
                 <div className={`absolute -right-16 self-center text-[10px] font-bold text-zinc-600 uppercase tracking-tighter w-12 transition-opacity duration-200 ${
                   isSwiping ? 'opacity-100' : 'opacity-0'
                 }`}>
@@ -92,7 +104,6 @@ export default function ChatView({
                 </div>
               </div>
 
-              {/* DETAILED READ RECEIPTS */}
               {isMine && isLastMessage && (
                 <div className={`text-[11px] text-zinc-500 font-medium mt-1 pr-1 text-right transition-opacity duration-300 ${
                   isSwiping ? 'opacity-0' : 'opacity-100'
@@ -112,7 +123,12 @@ export default function ChatView({
             type="text" 
             placeholder="Message" 
             value={chatInput} 
-            onChange={(e) => setChatInput(e.target.value)} 
+            onFocus={() => onTyping(true)}
+            onBlur={() => onTyping(false)}
+            onChange={(e) => {
+              setChatInput(e.target.value);
+              onTyping(e.target.value.length > 0);
+            }} 
             onKeyDown={(e) => e.key === 'Enter' && sendChatMessage()}
             className="w-full bg-transparent py-2 text-[16px] focus:outline-none placeholder:text-zinc-500 text-white"
             autoComplete="off"
