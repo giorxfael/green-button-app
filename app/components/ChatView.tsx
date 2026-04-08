@@ -20,7 +20,7 @@ export default function ChatView({
   return (
     <div className="flex flex-col h-[100dvh] overflow-hidden bg-black animate-in fade-in duration-300">
       
-      {/* Top Banner with Presence Status */}
+      {/* Top Banner */}
       <div className="fixed top-0 left-0 w-full z-50 bg-[#121212]/85 backdrop-blur-xl border-b border-white/5 pt-12 pb-5 px-4 flex items-center justify-between">
         <button onClick={() => setIsChatOpen(false)} className="flex items-center text-[#007aff] active:opacity-50 transition-opacity">
           <span className="text-4xl leading-none -mt-1 font-light pr-1">‹</span>
@@ -47,6 +47,7 @@ export default function ChatView({
         onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
         <div ref={scrollRef} />
         
+        {/* TYPING DOTS */}
         {isOtherTyping && (
           <div className="flex justify-start w-full mb-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
             <div className="bg-[#1c1c1e] px-4 py-3 rounded-[22px] rounded-bl-none flex gap-1 items-center">
@@ -61,7 +62,6 @@ export default function ChatView({
           const isMine = msg.senderId === myId;
           const isLastMessage = idx === 0; 
           const timeString = msg.timestamp?.toDate().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
-          
           return (
             <div key={msg.id} className={`relative flex flex-col w-full transition-transform duration-300 ease-out ${isSwiping ? '-translate-x-16' : 'translate-x-0'}`}>
               <div className={`flex w-full ${isMine ? 'justify-end' : 'justify-start'}`}>
@@ -78,10 +78,21 @@ export default function ChatView({
 
       <div className="w-full bg-black px-2 pb-10 pt-2">
         <div className="relative flex items-center bg-[#1c1c1e] rounded-full border border-white/5 px-4 py-1.5">
-          <input type="text" placeholder="Message" value={chatInput} onFocus={() => onTyping(true)} onBlur={() => onTyping(false)}
-            onChange={(e) => { setChatInput(e.target.value); onTyping(e.target.value.length > 0); }}
+          {/* UPDATED INPUT LISTENERS */}
+          <input 
+            type="text" 
+            placeholder="Message" 
+            value={chatInput} 
+            onFocus={() => onTyping(true)}
+            onBlur={() => onTyping(false)}
+            onChange={(e) => {
+              setChatInput(e.target.value);
+              onTyping(e.target.value.length > 0);
+            }} 
             onKeyDown={(e) => e.key === 'Enter' && sendChatMessage()}
-            className="w-full bg-transparent py-2 text-[16px] focus:outline-none placeholder:text-zinc-500 text-white" autoComplete="off" />
+            className="w-full bg-transparent py-2 text-[16px] focus:outline-none placeholder:text-zinc-500 text-white" 
+            autoComplete="off" 
+          />
           <div className="flex items-center gap-3 ml-2">
             {chatInput.trim() ? (
               <button onClick={sendChatMessage} className="w-8 h-8 rounded-full bg-[#007aff] flex items-center justify-center active:scale-90 transition-all">
