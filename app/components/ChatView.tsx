@@ -1,5 +1,7 @@
 'use client';
 import { useState, useRef } from 'react';
+import { db } from '../../lib/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 
 export default function ChatView({ 
   messages, myId, chatInput, setChatInput, sendChatMessage, setIsChatOpen,
@@ -17,8 +19,18 @@ export default function ChatView({
   };
   const handleTouchEnd = () => setIsSwiping(false);
 
+  // NEW: Toggle Reaction Logic
+  const handleDoubleClick = async (msgId: string, currentReaction: string) => {
+    const msgRef = doc(db, "messages", msgId);
+    await updateDoc(msgRef, {
+      reaction: currentReaction === '❤️' ? null : '❤️'
+    });
+    // Add haptic buzz
+    if (window.navigator.vibrate) window.navigator.vibrate(10);
+  };
+
   return (
-    <div className="flex flex-col h-[100dvh] overflow-hidden bg-black animate-in fade-in duration-300">
+    <div className="flex flex-col h-[100dvh] overflow-hidden bg-black animate-in fade-in duration-300 select-none">
       
       {/* Top Banner */}
       <div className="fixed top-0 left-0 w-full z-50 bg-[#121212]/85 backdrop-blur-xl border-b border-white/5 pt-12 pb-5 px-4 flex items-center justify-between">
@@ -43,11 +55,11 @@ export default function ChatView({
         <div className="w-10"></div>
       </div>
 
+      {/* Messages */}
       <div className="flex-grow overflow-y-auto px-4 pt-32 pb-6 flex flex-col-reverse space-y-reverse space-y-1 overflow-x-hidden touch-pan-y"
         onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
         <div ref={scrollRef} />
         
-        {/* TYPING DOTS */}
         {isOtherTyping && (
           <div className="flex justify-start w-full mb-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
             <div className="bg-[#1c1c1e] px-4 py-3 rounded-[22px] rounded-bl-none flex gap-1 items-center">
@@ -62,10 +74,28 @@ export default function ChatView({
           const isMine = msg.senderId === myId;
           const isLastMessage = idx === 0; 
           const timeString = msg.timestamp?.toDate().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
+          
           return (
             <div key={msg.id} className={`relative flex flex-col w-full transition-transform duration-300 ease-out ${isSwiping ? '-translate-x-16' : 'translate-x-0'}`}>
               <div className={`flex w-full ${isMine ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[75%] px-4 py-2.5 rounded-[22px] text-[17px] font-normal leading-tight ${isMine ? 'bg-[#007aff] text-white rounded-br-none' : 'bg-[#1c1c1e] text-white rounded-bl-none'}`}>{msg.text}</div>
+                
+                {/* BUBBLE WITH DOUBLE-TAP */}
+                <div 
+                  onDoubleClick={() => handleDoubleClick(msg.id, msg.reaction)}
+                  className={`relative max-w-[75%] px-4 py-2.5 rounded-[22px] text-[17px] font-normal leading-tight transition-transform active:scale-[0.98] ${
+                    isMine ? 'bg-[#007aff] text-white rounded-br-none' : 'bg-[#1c1c1e] text-white rounded-bl-none'
+                  }`}
+                >
+                  {msg.text}
+
+                  {/* REACTION HEART BADGE */}
+                  {msg.reaction === '❤️' && (
+                    <div className={`absolute -top-2 ${isMine ? '-left-2' : '-right-2'} bg-zinc-900 border-2 border-black rounded-full w-6 h-6 flex items-center justify-center text-[11px] shadow-lg animate-in zoom-in duration-200`}>
+                      ❤️
+                    </div>
+                  )}
+                </div>
+
                 <div className={`absolute -right-16 self-center text-[10px] font-bold text-zinc-600 uppercase tracking-tighter w-12 transition-opacity duration-200 ${isSwiping ? 'opacity-100' : 'opacity-0'}`}>{timeString}</div>
               </div>
               {isMine && isLastMessage && (
@@ -76,23 +106,13 @@ export default function ChatView({
         })}
       </div>
 
+      {/* Input */}
       <div className="w-full bg-black px-2 pb-10 pt-2">
         <div className="relative flex items-center bg-[#1c1c1e] rounded-full border border-white/5 px-4 py-1.5">
-          {/* UPDATED INPUT LISTENERS */}
-          <input 
-            type="text" 
-            placeholder="Message" 
-            value={chatInput} 
-            onFocus={() => onTyping(true)}
-            onBlur={() => onTyping(false)}
-            onChange={(e) => {
-              setChatInput(e.target.value);
-              onTyping(e.target.value.length > 0);
-            }} 
+          <input type="text" placeholder="Message" value={chatInput} onFocus={() => onTyping(true)} onBlur={() => onTyping(false)}
+            onChange={(e) => { setChatInput(e.target.value); onTyping(e.target.value.length > 0); }}
             onKeyDown={(e) => e.key === 'Enter' && sendChatMessage()}
-            className="w-full bg-transparent py-2 text-[16px] focus:outline-none placeholder:text-zinc-500 text-white" 
-            autoComplete="off" 
-          />
+            className="w-full bg-transparent py-2 text-[16px] focus:outline-none placeholder:text-zinc-500 text-white" autoComplete="off" />
           <div className="flex items-center gap-3 ml-2">
             {chatInput.trim() ? (
               <button onClick={sendChatMessage} className="w-8 h-8 rounded-full bg-[#007aff] flex items-center justify-center active:scale-90 transition-all">

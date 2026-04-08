@@ -32,10 +32,12 @@ export default function Home() {
   const [messages, setMessages] = useState<any[]>([]);
   const [chatInput, setChatInput] = useState('');
 
+  // HELPER: Calculates relative time (e.g., "5m ago")
   const formatLastSeen = (timestamp: any) => {
     if (!timestamp) return '';
     const date = timestamp.toDate();
     const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+    
     if (seconds < 60) return 'Just now';
     const minutes = Math.floor(seconds / 60);
     if (minutes < 60) return `${minutes}m ago`;
@@ -55,26 +57,28 @@ export default function Home() {
     document.getElementsByTagName('head')[0].appendChild(meta);
   }, []);
 
-  // UPDATED: Combined Presence Logic
+  // 1. ONLINE/OFFLINE HEARTBEAT
   useEffect(() => {
     if (!mounted || !myId) return;
-
-    // 1. Set MY status
-    const updateMyStatus = async (online: boolean) => {
-      console.log(`Presence: Setting ${myId} to ${online ? 'Online' : 'Offline'}`);
+    const setOnlineStatus = async (isOnline: boolean) => {
       await setDoc(doc(db, "presence", myId), {
-        online: online,
+        online: isOnline,
         lastSeen: Timestamp.now()
       }, { merge: true });
     };
+    setOnlineStatus(true);
+    const handleVisibilityChange = () => setOnlineStatus(document.visibilityState === 'visible');
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      setOnlineStatus(false);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [mounted, myId]);
 
-    updateMyStatus(true);
-    const handleVis = () => updateMyStatus(document.visibilityState === 'visible');
-    document.addEventListener("visibilitychange", handleVis);
-
-    // 2. Listen for OTHER status
+  // 2. PRESENCE & TYPING LISTENER
+  useEffect(() => {
+    if (!mounted || !myId) return;
     const otherId = myId === 'iPhone1' ? 'iPhone2' : 'iPhone1';
-    console.log(`Presence: Listening for ${otherId}`);
     const unsub = onSnapshot(doc(db, "presence", otherId), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -83,21 +87,18 @@ export default function Home() {
         setLastSeenString(formatLastSeen(data.lastSeen));
       }
     });
-
-    return () => {
-      updateMyStatus(false);
-      document.removeEventListener("visibilitychange", handleVis);
-      unsub();
-    };
+    return () => unsub();
   }, [mounted, myId]);
 
   const handleTyping = async (isTyping: boolean) => {
     if (!myId) return;
-    console.log(`Typing: ${myId} is ${isTyping ? 'typing' : 'not typing'}`);
-    await setDoc(doc(db, "presence", myId), { typing: isTyping }, { merge: true });
+    await setDoc(doc(db, "presence", myId), { 
+      typing: isTyping,
+      lastActive: Timestamp.now() 
+    }, { merge: true });
   };
 
-  // 1. PING LISTENER
+  // 3. PING LISTENER
   useEffect(() => {
     if (!mounted || !myId) return;
     const unsubscribe = onSnapshot(doc(db, "notifications", "current"), (docSnap) => {
@@ -114,14 +115,13 @@ export default function Home() {
     return () => unsubscribe();
   }, [mounted, myId]);
 
-  // 2. CHAT LISTENER
+  // 4. CHAT & HISTORY LOGIC
   useEffect(() => {
     if (!mounted) return;
     const q = query(collection(db, "messages"), where("timestamp", ">=", Timestamp.fromDate(new Date(Date.now() - 86400000))), orderBy("timestamp", "desc"));
     return onSnapshot(q, (snapshot) => setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
   }, [mounted]);
 
-  // 3. SEEN LOGIC
   useEffect(() => {
     if (!mounted || !isChatOpen || !messages.length || !myId) return;
     messages.filter(msg => msg.senderId !== myId && !msg.seen).forEach(async (msg) => {
@@ -129,14 +129,12 @@ export default function Home() {
     });
   }, [isChatOpen, messages, myId, mounted]);
 
-  // 4. HISTORY LISTENER
   useEffect(() => {
     if (!mounted) return;
     const q = query(collection(db, "history"), orderBy("timestamp", "desc"), limit(5));
     return onSnapshot(q, (snapshot) => setHistory(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
   }, [mounted]);
 
-  // 5. STREAK LOGIC
   const streak = (() => {
     if (history.length === 0) return { time: "0h 0m", emoji: "🆕" };
     const lastPing = history.find(item => item.status !== 'pending' && item.status !== 'CANCELED')?.timestamp?.toDate();
@@ -203,6 +201,16 @@ export default function Home() {
         * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
         input { font-size: 16px !important; }
       `}</style>
+      {!isChatOpen && (
+        <div className="absolute top-0 left-0 w-full z-50 pt-10 px-4 pointer-events-none">
+            <button onClick={() => setIsChatOpen(true)} className="pointer-events-auto opacity-100 transition-all active:scale-90 flex items-center relative">
+                <div className="relative p-2 bg-black/40 rounded-full backdrop-blur-md">
+                  <span className="text-2xl">💬</span>
+                  {unreadCount > 0 && <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-black">{unreadCount}</span>}
+                </div>
+            </button>
+        </div>
+      )}
       {isChatOpen ? (
         <ChatView 
           messages={messages} myId={myId} chatInput={chatInput} setChatInput={setChatInput} 
@@ -211,32 +219,20 @@ export default function Home() {
           isOtherOnline={isOtherOnline} lastSeenString={lastSeenString}
         />
       ) : (
-        <>
-          {!isChatOpen && (
-            <div className="absolute top-0 left-0 w-full z-50 pt-10 px-4 pointer-events-none">
-                <button onClick={() => setIsChatOpen(true)} className="pointer-events-auto opacity-100 transition-all active:scale-90 flex items-center relative">
-                    <div className="relative p-2 bg-black/40 rounded-full backdrop-blur-md">
-                      <span className="text-2xl">💬</span>
-                      {unreadCount > 0 && <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-black">{unreadCount}</span>}
-                    </div>
-                </button>
-            </div>
-          )}
-          <PingView 
-            isIBeingPinged={appState?.status === 'pending' && appState?.sender !== myId}
-            appState={appState} replyMsg={replyMsg} setReplyMsg={setReplyMsg} handleResponse={handleResponse}
-            amIWaiting={appState?.status === 'pending' && appState?.sender === myId}
-            customMsg={customMsg} setCustomMsg={setCustomMsg} sendPing={sendPing} cancelPing={cancelPing}
-            status={status} statusColor={statusColor} streak={streak} history={history} swipedId={swipedId}
-            handleTouchStart={(e: any) => touchStart.current = e.targetTouches[0].clientX}
-            handleTouchMove={(e: any, id: string) => {
-              const touchEnd = e.targetTouches[0].clientX;
-              if (touchStart.current - touchEnd > 50) setSwipedId(id);
-              else if (touchEnd - touchStart.current > 50) setSwipedId(null);
-            }}
-            deleteHistoryItem={deleteHistoryItem}
-          />
-        </>
+        <PingView 
+          isIBeingPinged={appState?.status === 'pending' && appState?.sender !== myId}
+          appState={appState} replyMsg={replyMsg} setReplyMsg={setReplyMsg} handleResponse={handleResponse}
+          amIWaiting={appState?.status === 'pending' && appState?.sender === myId}
+          customMsg={customMsg} setCustomMsg={setCustomMsg} sendPing={sendPing} cancelPing={cancelPing}
+          status={status} statusColor={statusColor} streak={streak} history={history} swipedId={swipedId}
+          handleTouchStart={(e: any) => touchStart.current = e.targetTouches[0].clientX}
+          handleTouchMove={(e: any, id: string) => {
+            const touchEnd = e.targetTouches[0].clientX;
+            if (touchStart.current - touchEnd > 50) setSwipedId(id);
+            else if (touchEnd - touchStart.current > 50) setSwipedId(null);
+          }}
+          deleteHistoryItem={deleteHistoryItem}
+        />
       )}
     </div>
   );
