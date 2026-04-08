@@ -20,6 +20,10 @@ export default function Home() {
   const [history, setHistory] = useState<any[]>([]);
   const [mounted, setMounted] = useState(false);
   const [isOtherTyping, setIsOtherTyping] = useState(false);
+  
+  // New Presence States
+  const [isOtherOnline, setIsOtherOnline] = useState(false);
+  const [lastSeenString, setLastSeenString] = useState('');
 
   const [swipedId, setSwipedId] = useState<string | null>(null);
   const touchStart = useRef(0);
@@ -39,13 +43,44 @@ export default function Home() {
     document.getElementsByTagName('head')[0].appendChild(meta);
   }, []);
 
-  // TYPING LOGIC: Listen for the other person
+  // ONLINE/OFFLINE LOGIC
+  useEffect(() => {
+    if (!mounted || !myId) return;
+
+    const setOnlineStatus = async (isOnline: boolean) => {
+      await setDoc(doc(db, "presence", myId), {
+        online: isOnline,
+        lastSeen: Timestamp.now()
+      }, { merge: true });
+    };
+
+    setOnlineStatus(true);
+
+    const handleVisibilityChange = () => {
+      setOnlineStatus(document.visibilityState === 'visible');
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      setOnlineStatus(false);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [mounted, myId]);
+
+  // TYPING & PRESENCE LISTENER
   useEffect(() => {
     if (!mounted || !myId) return;
     const otherId = myId === 'iPhone1' ? 'iPhone2' : 'iPhone1';
     const unsub = onSnapshot(doc(db, "presence", otherId), (docSnap) => {
       if (docSnap.exists()) {
-        setIsOtherTyping(docSnap.data().typing || false);
+        const data = docSnap.data();
+        setIsOtherTyping(data.typing || false);
+        setIsOtherOnline(data.online || false);
+        
+        if (data.lastSeen) {
+          const time = data.lastSeen.toDate().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+          setLastSeenString(time);
+        }
       }
     });
     return () => unsub();
@@ -133,7 +168,7 @@ export default function Home() {
     if (!chatInput.trim()) return;
     const text = chatInput; 
     setChatInput('');
-    handleTyping(false); // Stop typing status on send
+    handleTyping(false);
     await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, senderId: myId }) });
   };
 
@@ -189,6 +224,8 @@ export default function Home() {
           setIsChatOpen={setIsChatOpen} 
           isOtherTyping={isOtherTyping}
           onTyping={handleTyping}
+          isOtherOnline={isOtherOnline}
+          lastSeenString={lastSeenString}
         />
       ) : (
         <PingView 

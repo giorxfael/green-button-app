@@ -9,7 +9,9 @@ export default function ChatView({
   sendChatMessage,
   setIsChatOpen,
   isOtherTyping,
-  onTyping
+  onTyping,
+  isOtherOnline,
+  lastSeenString
 }: any) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isSwiping, setIsSwiping] = useState(false);
@@ -45,9 +47,24 @@ export default function ChatView({
         >
           <span className="text-4xl leading-none -mt-1 font-light pr-1">‹</span>
         </button>
+        
+        {/* Center Name & Presence Info */}
         <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center">
           <span className="text-[13px] font-semibold text-white tracking-wide">{otherPhone}</span>
+          <div className="flex items-center gap-1 mt-0.5">
+            {isOtherOnline ? (
+              <>
+                <div className="w-1 h-1 bg-green-500 rounded-full animate-pulse" />
+                <span className="text-[9px] font-bold text-green-500 uppercase tracking-widest">Online</span>
+              </>
+            ) : (
+              <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest">
+                {lastSeenString ? `Last seen ${lastSeenString}` : 'Offline'}
+              </span>
+            )}
+          </div>
         </div>
+        
         <div className="w-10"></div>
       </div>
 
